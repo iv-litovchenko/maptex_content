@@ -5,18 +5,22 @@
 Docker hub (хранилище образов)
 Docker image (образ данных)
 Docker container (список технологий)
-
-Поднять контейнер (запустить)
-Виртуальная машина - ОС с серусрами
 docker-compose.yml (файл с настройками необходимого софта для проекта)
 
 # -------------------------------------------------------------------
 # Команды
 # -------------------------------------------------------------------
 
-$ docker ps -a // список процессов
+$ docker ps // список активных процессов
+$ docker ps -a // список активных и не активных процессов
 $ docker stop $(docker ps -a -q) // остановить все процессы
 $ docker rm $(docker ps -a -q) // удалить все процессы
 
+$ docker-compose build
+$ docker-compose up -d
 $ docker-compose up --build -d
-$ docker exec -it php-apache bash // провалится в контейнер
+$ docker-compose down
+
+$ docker exec -it <php-apache-ID> bash // провалится в контейнер
+$ docker-compose exec -T <php-apache-ID> composer run-script build:app  --- пересобрать проект на докере
+$ docker-compose exec -T <php-apache-ID> php artisan ...

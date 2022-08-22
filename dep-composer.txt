@@ -24,6 +24,7 @@
 >> composer init
 >> composer -v
 >> composer --version
+>> composer run-script build:app
 >> composer install
 >> composer update
 >> composer require symfony/symfony
