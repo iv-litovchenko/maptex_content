@@ -105,6 +105,7 @@ enum Category: string
     case Fruits = 'fruits';
     case People = 'people';
 }
+
 Route::get('/categories/{category}', function (Category $category) {
     return $category->value;
 });
@@ -153,12 +154,14 @@ $ php artisan view:cache
 $ php artisan view:clear
 
 # -------------------------------------------------------------------
-# Классы, хелперы
+# Классы, хелперы, фасады
 # -------------------------------------------------------------------
 
 $value = env('APP_DEBUG', false), // APP_DEBUG
 $value = config('app.timezone', 'Asia/Seoul');
 
+use Illuminate\Support\Facades\App;
+use Psr\Container\ContainerInterface; // ContainerInterface $container // $service = $container->get(Transistor::class);
 if (\Illuminate\Support\Facades\App::environment('local')) {}
 
 \Log::useDailyFiles(storage_path().'/logs/name-of-log.log');
@@ -166,10 +169,62 @@ if (\Illuminate\Support\Facades\App::environment('local')) {}
 
 # -------------------------------------------------------------------
 # Сервисный контейнер
-# https://laravel.com/docs/9.x/container
 # -------------------------------------------------------------------
 
----
+// Поскольку репозиторий внедряется, мы можем легко заменить его другой реализацией.
+// Мы также можем легко «издеваться» или создавать фиктивную реализацию UserRepository при тестировании нашего приложения.
+
+protected $users;
+public function __construct(UserRepository $users){
+    $this->users = $users;
+}
+
+// Автоматическое внедрение
+// Нет необходимости привязывать классы к контейнеру, если они не зависят ни от каких интерфейсов.
+// Контейнеру не нужно указывать, как создавать эти объекты, поскольку он может автоматически разрешать эти объекты с помощью отражения.
+class Service { }
+Route::get('/', function (Service $service) { }
+
+Многие классы, которые вы будете писать при создании приложения Laravel,
+автоматически получают свои зависимости через контейнер, включая
+контроллеры, прослушиватели событий, промежуточное ПО и многое другое.
+Кроме того, вы можете указывать зависимости в handle метод очереди заданий.
+
+Итак, когда вам приходилось вручную взаимодействовать с контейнером?
+Во-первых, если вы пишете класс, реализующий интерфейс, и хотите указать тип этого интерфейса в конструкторе маршрута или класса,
+вы должны сообщить контейнеру, как разрешить этот интерфейс.
+Во-вторых, если вы пишете пакет Laravel, которым планируете поделиться с другими разработчиками Laravel,
+вам может потребоваться привязать службы вашего пакета к контейнеру.
+
+>> Связывание
+Почти все ваши привязки контейнера службы будут зарегистрированы в поставщиках услуг,
+поэтому большинство этих примеров демонстрирует использование контейнера в этом контексте.
+
+$service = new Transistor(new PodcastParser);
+$this->app->instance(Transistor::class, $service);
+$this->app->bind(Transistor::class, function ($app) {
+$this->app->singleton(Transistor::class, function ($app) {
+    return new Transistor($app->make(PodcastParser::class));
+});
+
+// Контекстная привязка
+$this->app->when([VideoController::class, UploadController::class])->needs(Filesystem::class)->give(function () {
+    return Storage::disk('s3');
+});
+
+->needs('$variableName')
+->give($value);
+
+// EventPusher интерфейс и RedisEventPusher реализация
+$this->app->bind(EventPusher::class, RedisEventPusher::class);
+
+// За пределами поставщика услуг
+App::bind(Transistor::class, function ($app) { });
+
+// Контейнерные события
+// Контейнер службы запускает событие каждый раз, когда разрешает объект.
+// Вы можете прослушать это событие с помощью resolvingметод:
+$this->app->resolving(Transistor::class, function ($transistor, $app) { });
 
 # -------------------------------------------------------------------
 # Разное
