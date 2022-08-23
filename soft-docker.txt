@@ -21,6 +21,7 @@ $ docker-compose up -d
 $ docker-compose up --build -d
 $ docker-compose down
 
-$ docker exec -it <php-apache-ID> bash // провалится в контейнер
+$ docker exec -it <php-apache-ID> bash // провалится в контейнер (exit - выйти)
+$ docker exec -it <php-apache-ID> /bin/sh // провалится в контейнер v2
 $ docker-compose exec -T <php-apache-ID> composer run-script build:app  --- пересобрать проект на докере
 $ docker-compose exec -T <php-apache-ID> php artisan ...
