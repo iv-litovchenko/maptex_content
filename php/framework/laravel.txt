@@ -233,17 +233,13 @@ $this->app->resolving(Transistor::class, function ($transistor, $app) { });
 $ touch database/database.sqlite DB_CONNECTION=sqlite
 
 # -------------------------------------------------------------------
-# Инструменты для разработки динамического фронта (внешнего интерфейса)
+# Отладка
 # -------------------------------------------------------------------
 
-https://laravel-livewire.com/
-https://alpinejs.dev/
-https://tailwindcss.com/
-https://vitejs.dev/
-https://jetstream.laravel.com/2.x/introduction.html
+// Получить текущий маршрут во view
+$currentRouteAction = \Illuminate\Support\Facades\Route::currentRouteAction();
 
---
-https://nextjs.org/
-https://nuxtjs.org/
+dd();
+dump();
 
 

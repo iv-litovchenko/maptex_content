@@ -1,0 +1,13 @@
+# -------------------------------------------------------------------
+# Инструменты для разработки динамического фронта (внешнего интерфейса)
+# -------------------------------------------------------------------
+
+https://laravel-livewire.com/
+https://alpinejs.dev/
+https://tailwindcss.com/
+https://vitejs.dev/
+https://jetstream.laravel.com/2.x/introduction.html
+
+--
+https://nextjs.org/
+https://nuxtjs.org/
