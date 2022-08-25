@@ -6,6 +6,16 @@
 # Структура папок и файлов
 # -------------------------------------------------------------------
 
+- app/ контроллеры, модели, провайдеры
+- config/ настройки
+- routes/ маршруты
+- database/ информация о базе
+- storage/ картинки, файлы
+- .env (не загружается в git) - глобальные настройки проекта
+----- APP_KEY - открытый ключ
+----- APP_DEBUG - режим работы отладчика (true | false)
+-----
+
 Точкой входа для всех запросов к приложению Laravel является public/index.php-файл.
 Все запросы направляются в этот файл конфигурацией вашего веб-сервера (Apache/Nginx).
 
@@ -55,15 +65,300 @@ Laravel будет перебирать этот список провайдер
 загрузочных и сервисных привязок вашего приложения. Для больших приложений вы можете создать несколько поставщиков
 услуг, каждый из которых будет выполнять более точную загрузку определенных служб, используемых вашим приложением.
 
-- app/ контроллеры, модели, провайдеры
-- config/ настройки
-- routes/ маршруты
-- database/ информация о базе
-- storage/ картинки, файлы
-- .env (не загружается в git) - глобальные настройки проекта
------ APP_KEY - открытый ключ
------ APP_DEBUG - режим работы отладчика (true | false)
------
+# -------------------------------------------------------------------
+# Сервисный контейнер (Service Container)
+# -------------------------------------------------------------------
+
+// Поскольку репозиторий внедряется, мы можем легко заменить его другой реализацией.
+// Мы также можем легко «издеваться» или создавать фиктивную реализацию UserRepository при тестировании нашего приложения.
+
+protected $users;
+public function __construct(UserRepository $users){
+    $this->users = $users;
+}
+
+// Автоматическое внедрение
+// Нет необходимости привязывать классы к контейнеру, если они не зависят ни от каких интерфейсов.
+// Контейнеру не нужно указывать, как создавать эти объекты, поскольку он может автоматически разрешать эти объекты с помощью отражения.
+class Service { }
+Route::get('/', function (Service $service) { }
+
+Многие классы, которые вы будете писать при создании приложения Laravel,
+автоматически получают свои зависимости через контейнер, включая
+контроллеры, прослушиватели событий, промежуточное ПО и многое другое.
+Кроме того, вы можете указывать зависимости в handle метод очереди заданий.
+
+Итак, когда вам приходилось вручную взаимодействовать с контейнером?
+Во-первых, если вы пишете класс, реализующий интерфейс, и хотите указать тип этого интерфейса в конструкторе маршрута или класса,
+вы должны сообщить контейнеру, как разрешить этот интерфейс.
+Во-вторых, если вы пишете пакет Laravel, которым планируете поделиться с другими разработчиками Laravel,
+вам может потребоваться привязать службы вашего пакета к контейнеру.
+
+>> Связывание
+Почти все ваши привязки контейнера службы будут зарегистрированы в поставщиках услуг,
+поэтому большинство этих примеров демонстрирует использование контейнера в этом контексте.
+
+$service = new Transistor(new PodcastParser);
+$this->app->instance(Transistor::class, $service);
+$this->app->bind(Transistor::class, function ($app) {
+$this->app->singleton(Transistor::class, function ($app) {
+    return new Transistor($app->make(PodcastParser::class));
+});
+
+// Контекстная привязка
+$this->app->when([VideoController::class, UploadController::class])->needs(Filesystem::class)->give(function () {
+    return Storage::disk('s3');
+});
+
+->needs('$variableName')
+->give($value);
+
+// EventPusher интерфейс и RedisEventPusher реализация
+$this->app->bind(EventPusher::class, RedisEventPusher::class);
+
+// За пределами поставщика услуг
+App::bind(Transistor::class, function ($app) { });
+
+// Контейнерные события
+// Контейнер службы запускает событие каждый раз, когда разрешает объект.
+// Вы можете прослушать это событие с помощью resolvingметод:
+$this->app->resolving(Transistor::class, function ($transistor, $app) { });
+
+# -------------------------------------------------------------------
+# Поставщики услуг (Service Providers)
+# -------------------------------------------------------------------
+
+Поставщики услуг являются центральным местом для начальной загрузки всех приложений Laravel.
+Ваше собственное приложение, а также все основные службы Laravel загружаются через поставщиков услуг.
+Но что мы подразумеваем под «загрузкой»? В общем, мы имеем в виду регистрацию вещей, включая регистрацию привязок контейнеров служб,
+прослушивателей событий, промежуточного программного обеспечения и даже маршрутов. Поставщики услуг являются центральным местом для настройки вашего приложения.
+
+Если вы откроете config/app.phpфайл, включенный в Laravel, вы увидите providersмножество.
+Это все классы поставщиков услуг, которые будут загружены для вашего приложения.
+По умолчанию в этом массиве перечислены основные поставщики услуг Laravel.
+ Эти провайдеры загружают основные компоненты Laravel, такие как почтовая программа, очередь, кеш и другие.
+  Многие из этих провайдеров являются «отложенными» провайдерами, то есть они не будут загружаться при каждом запросе,
+  а только тогда, когда предоставляемые ими услуги действительно необходимы.
+
+Все поставщики услуг расширяют Illuminate\Support\ServiceProviderучебный класс.
+Большинство поставщиков услуг содержат registerи bootметод. В рамках registerметод,
+вы должны привязывать вещи только к сервис-контейнеру . Вы никогда не должны пытаться зарегистрировать какие-либо
+прослушиватели событий, маршруты или любую другую функциональность в пределах registerметод.
+
+Все поставщики услуг зарегистрированы в config/app.phpконфигурационный файл.
+Этот файл содержит providersмассив, в котором вы можете перечислить имена классов ваших поставщиков услуг.
+По умолчанию в этом массиве перечислены основные поставщики услуг Laravel. Э
+
+Laravel компилирует и хранит список всех услуг, предоставляемых отложенными поставщиками услуг,
+вместе с именем своего класса поставщиков услуг.
+Затем, только когда вы пытаетесь разрешить одну из этих служб, Laravel загружает поставщика служб.
+
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Contracts\Routing\ResponseFactory;
+use Illuminate\Contracts\Support\DeferrableProvider;
+class RiakServiceProvider extends ServiceProvider implements DeferrableProvider { // Отложенный провайдер
+class RiakServiceProvider extends ServiceProvider {
+
+    // Если ваш поставщик услуг регистрирует много простых привязок, вы можете использовать bindingsа
+    // также singletonsсвойства вместо ручной регистрации каждой привязки контейнера.
+    // Простые привязки
+    public $bindings = [
+        ServerProvider::class => DigitalOceanServerProvider::class,
+    ];
+
+    // Простые привязки
+    public $singletons = [
+        DowntimeNotifier::class => PingdomDowntimeNotifier::class,
+        ServerProvider::class => ServerToolsProvider::class,
+    ];
+
+    // Как упоминалось ранее, в рамках registerметод, вы должны привязывать вещи только к сервис-контейнеру .
+    // Вы никогда не должны пытаться зарегистрировать какие-либо прослушиватели событий, маршруты или любую
+    // другую функциональность в пределах registerметод. В противном случае вы можете случайно воспользоваться услугой,
+    // предоставляемой поставщиком услуг, который еще не загружен.
+    // В рамках любого из методов вашего поставщика услуг у вас всегда есть доступ к $appсвойство, которое обеспечивает доступ к сервисному контейнеру:
+    public function register(ResponseFactory $response)
+    {
+        $this->app->singleton(); //...
+        $response->macro('serialized', function ($value) {});
+    }
+
+    // Итак, что, если нам нужно зарегистрировать компоновщик представлений в нашем сервис-провайдере?
+    // Это должно быть сделано в течение bootметод. Этот метод вызывается после того, как все другие поставщики услуг
+    // были зарегистрированы , что означает, что у вас есть доступ ко всем другим службам, которые были зарегистрированы фреймворком:
+    public function boot()
+    {
+        View::composer('view', function () {});
+    }
+}
+
+# -------------------------------------------------------------------
+# Фасады (Facades) = Базовый класс
+# В приложении Laravel фасад — это класс, который обеспечивает доступ
+# к объекту из контейнера.
+# Вместо этого Cacheфасад расширяет основание Facadeкласс и определяет
+# метод getFacadeAccessor(). Задача этого метода — вернуть имя привязки
+# сервисного контейнера. Когда пользователь ссылается на любой статический метод
+# в Cacheфасад, Laravel разрешает cacheсвязывание из сервисного контейнера
+# и запускает запрошенный метод (в данном случае get) против этого объекта.
+# -------------------------------------------------------------------
+
+В документации Laravel вы увидите примеры кода, который взаимодействует с функциями Laravel через «фасады».
+Фасады предоставляют «статический» интерфейс для классов, доступных в сервис-контейнере .
+Laravel поставляется со многими фасадами, которые обеспечивают доступ почти ко всем функциям Laravel.
+
+Фасады Laravel служат «статическими прокси» для базовых классов в сервис-контейнере,
+предоставляя преимущества лаконичного, выразительного синтаксиса, сохраняя при этом большую
+тестируемость и гибкость, чем традиционные статические методы
+
+Все фасады Laravel определены в Illuminate\Support\Facadesпространство имен.
+Итак, мы можем легко получить доступ к фасаду следующим образом:
+
+Route::get('/users', function () {
+    return response()->json([
+        // ...
+    ]);
+});
+
+
+>> Когда использовать фасады
+Поскольку фасады очень просты в использовании и не требуют внедрения,
+можно легко позволить вашим классам продолжать расти и использовать
+множество фасадов в одном классе. Используя внедрение зависимостей,
+этот потенциал смягчается визуальной обратной связью, которую большой
+ конструктор дает вам, что ваш класс становится слишком большим.
+ Итак, при использовании фасадов обратите особое внимание на размер вашего класса,
+ чтобы его сфера ответственности оставалась узкой.
+ Если ваш класс становится слишком большим, подумайте о том, чтобы
+ разделить его на несколько меньших классов.
+
+Фасады Против. Внедрение зависимости
+
+Одним из основных преимуществ внедрения зависимостей является возможность
+ замены реализаций внедренного класса. Это полезно во время тестирования, поскольку вы можете внедрить макет или заглушку и утверждать,
+ что для заглушки были вызваны различные методы.
+Как правило, невозможно имитировать или заглушить действительно статический метод класса. Однако, поскольку фасады используют
+ динамические методы для прокси-вызовов методов для объектов, разрешенных из сервисного контейнера,
+мы фактически можем тестировать фасады так же, как мы тестировали бы внедренный
+экземпляр класса.
+
+Фасады Против. Вспомогательные функции
+Между фасадами и вспомогательными функциями нет абсолютно никакой практической разницы.
+При использовании вспомогательных функций вы по-прежнему можете тестировать их точно так же,
+как и соответствующий фасад.
+return Illuminate\Support\Facades\View::make('profile');
+return view('profile');
+
+Справочник по классам фасадов
+Facade 	                Class 	                                        Service Container Binding
+App 	                Illuminate\Foundation\Application 	            app
+Artisan 	            Illuminate\Contracts\Console\Kernel 	        artisan
+Auth 	                Illuminate\Auth\AuthManager 	                auth
+Auth (Instance) 	    Illuminate\Contracts\Auth\Guard 	            auth.driver
+Blade 	                Illuminate\View\Compilers\BladeCompiler 	    blade.compiler
+Broadcast 	            Illuminate\Contracts\Broadcasting\Factory
+Broadcast (Instance) 	Illuminate\Contracts\Broadcasting\Broadcaster
+Bus 	                Illuminate\Contracts\Bus\Dispatcher
+Cache 	                Illuminate\Cache\CacheManager 	                cache
+Cache (Instance) 	    Illuminate\Cache\Repository 	                cache.store
+Config 	                Illuminate\Config\Repository 	                config
+Cookie 	                Illuminate\Cookie\CookieJar 	                cookie
+Crypt 	                Illuminate\Encryption\Encrypter 	            encrypter
+Date 	                Illuminate\Support\DateFactory 	                date
+DB 	Illuminate\Database\DatabaseManager 	                            db
+DB (Instance) 	        Illuminate\Database\Connection 	                db.connection
+Event 	                Illuminate\Events\Dispatcher 	                events
+File 	                Illuminate\Filesystem\Filesystem 	            files
+Gate 	                Illuminate\Contracts\Auth\Access\Gate
+Hash 	                Illuminate\Contracts\Hashing\Hasher 	        hash
+Http 	                Illuminate\Http\Client\Factory
+Lang 	                Illuminate\Translation\Translator 	            translator
+Log 	                Illuminate\Log\LogManager 	                    log
+Mail 	                Illuminate\Mail\Mailer 	                        mailer
+Notification 	        Illuminate\Notifications\ChannelManager
+Password 	            Illuminate\Auth\Passwords\PasswordBrokerManager auth.password
+Password (Instance) 	Illuminate\Auth\Passwords\PasswordBroker 	    auth.password.broker
+Queue 	                Illuminate\Queue\QueueManager 	                queue
+Queue (Instance) 	    Illuminate\Contracts\Queue\Queue 	            queue.connection
+Queue (Base Class) 	    Illuminate\Queue\Queue
+Redirect 	            Illuminate\Routing\Redirector 	                redirect
+Redis 	                Illuminate\Redis\RedisManager 	                redis
+Redis (Instance) 	    Illuminate\Redis\Connections\Connection 	    redis.connection
+Request 	            Illuminate\Http\Request 	                    request
+Response 	            Illuminate\Contracts\Routing\ResponseFactory
+Response (Instance) 	Illuminate\Http\Response
+Route 	                Illuminate\Routing\Router 	                    router
+Schema 	                Illuminate\Database\Schema\Builder
+Session 	            Illuminate\Session\SessionManager 	            session
+Session (Instance) 	    Illuminate\Session\Store 	                    session.store
+Storage 	            Illuminate\Filesystem\FilesystemManager 	    filesystem
+Storage (Instance) 	    Illuminate\Contracts\Filesystem\Filesystem  	filesystem.disk
+URL 	                Illuminate\Routing\UrlGenerator 	            url
+Validator 	            Illuminate\Validation\Factory 	                validator
+Validator (Instance) 	Illuminate\Validation\Validator
+View 	                Illuminate\View\Factory 	                    view
+View (Instance)         Illuminate\View\View
+Vite 	                Illuminate\Foundation\Vite
+
+# -------------------------------------------------------------------
+# Команды
+# -------------------------------------------------------------------
+
+$ php artisan about --only=environment
+$ php artisan list make // доступные команды
+$ php artisan storage:link  // создать символическую ссылку  на папку public/storage
+$ php artisan test
+$ php artisan test --coverage // тестовое покрытие с помощью Artisan
+$ php artisan route:list
+
+$ php artisan up // выключить режим обслуживания
+$ php artisan down // включить режим обслуживания (resources/views/errors/503.blade.php), пока ваше приложение находится в режиме обслуживания, задания в очереди обрабатываться не будут.
+
+$ php artisan make:provider RiakServiceProvider
+
+# -------------------------------------------------------------------
+# Очистка кэша
+# -------------------------------------------------------------------
+
+$ composer install --optimize-autoloader --no-dev // оптимизация на проде
+$ php artisan route:cache
+$ php artisan config:cache
+$ php artisan view:cache
+$ php artisan view:clear
+
+# -------------------------------------------------------------------
+# Классы, хелперы, фасады
+# -------------------------------------------------------------------
+
+$value = env('APP_DEBUG', false), // APP_DEBUG
+$value = config('app.timezone', 'Asia/Seoul');
+
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Response;
+
+use Psr\Container\ContainerInterface; // ContainerInterface $container // $service = $container->get(Transistor::class);
+if (\Illuminate\Support\Facades\App::environment('local')) {}
+
+# -------------------------------------------------------------------
+# Разное
+# -------------------------------------------------------------------
+
+$ touch database/database.sqlite DB_CONNECTION=sqlite
+
+# -------------------------------------------------------------------
+# Отладка
+# -------------------------------------------------------------------
+
+// Получить текущий маршрут во view
+$currentRouteAction = \Illuminate\Support\Facades\Route::currentRouteAction();
+
+dd();
+dump();
+
+\Log::useDailyFiles(storage_path().'/logs/name-of-log.log');
+\Log::info('msg');
 
 # -------------------------------------------------------------------
 # Новое в 9
@@ -128,118 +423,5 @@ Route::get('/users/{user}/posts/{post:slug}', function (User $user, Post $post) 
 $table->text('bio')->fullText();
 $table->text('bio')->fullText();
 $users = DB::table('users')->whereFullText('bio', 'web developer')->get();
-
-# -------------------------------------------------------------------
-# Команды
-# -------------------------------------------------------------------
-
-$ php artisan about --only=environment
-$ php artisan list make // доступные команды
-$ php artisan storage:link  // создать символическую ссылку  на папку public/storage
-$ php artisan test
-$ php artisan test --coverage // тестовое покрытие с помощью Artisan
-$ php artisan route:list
-
-$ php artisan up // выключить режим обслуживания
-$ php artisan down // включить режим обслуживания (resources/views/errors/503.blade.php), пока ваше приложение находится в режиме обслуживания, задания в очереди обрабатываться не будут.
-
-# -------------------------------------------------------------------
-# Очистка кэша
-# -------------------------------------------------------------------
-
-$ composer install --optimize-autoloader --no-dev // оптимизация на проде
-$ php artisan route:cache
-$ php artisan config:cache
-$ php artisan view:cache
-$ php artisan view:clear
-
-# -------------------------------------------------------------------
-# Классы, хелперы, фасады
-# -------------------------------------------------------------------
-
-$value = env('APP_DEBUG', false), // APP_DEBUG
-$value = config('app.timezone', 'Asia/Seoul');
-
-use Illuminate\Support\Facades\App;
-use Psr\Container\ContainerInterface; // ContainerInterface $container // $service = $container->get(Transistor::class);
-if (\Illuminate\Support\Facades\App::environment('local')) {}
-
-\Log::useDailyFiles(storage_path().'/logs/name-of-log.log');
-\Log::info('msg');
-
-# -------------------------------------------------------------------
-# Сервисный контейнер
-# -------------------------------------------------------------------
-
-// Поскольку репозиторий внедряется, мы можем легко заменить его другой реализацией.
-// Мы также можем легко «издеваться» или создавать фиктивную реализацию UserRepository при тестировании нашего приложения.
-
-protected $users;
-public function __construct(UserRepository $users){
-    $this->users = $users;
-}
-
-// Автоматическое внедрение
-// Нет необходимости привязывать классы к контейнеру, если они не зависят ни от каких интерфейсов.
-// Контейнеру не нужно указывать, как создавать эти объекты, поскольку он может автоматически разрешать эти объекты с помощью отражения.
-class Service { }
-Route::get('/', function (Service $service) { }
-
-Многие классы, которые вы будете писать при создании приложения Laravel,
-автоматически получают свои зависимости через контейнер, включая
-контроллеры, прослушиватели событий, промежуточное ПО и многое другое.
-Кроме того, вы можете указывать зависимости в handle метод очереди заданий.
-
-Итак, когда вам приходилось вручную взаимодействовать с контейнером?
-Во-первых, если вы пишете класс, реализующий интерфейс, и хотите указать тип этого интерфейса в конструкторе маршрута или класса,
-вы должны сообщить контейнеру, как разрешить этот интерфейс.
-Во-вторых, если вы пишете пакет Laravel, которым планируете поделиться с другими разработчиками Laravel,
-вам может потребоваться привязать службы вашего пакета к контейнеру.
-
->> Связывание
-Почти все ваши привязки контейнера службы будут зарегистрированы в поставщиках услуг,
-поэтому большинство этих примеров демонстрирует использование контейнера в этом контексте.
-
-$service = new Transistor(new PodcastParser);
-$this->app->instance(Transistor::class, $service);
-$this->app->bind(Transistor::class, function ($app) {
-$this->app->singleton(Transistor::class, function ($app) {
-    return new Transistor($app->make(PodcastParser::class));
-});
-
-// Контекстная привязка
-$this->app->when([VideoController::class, UploadController::class])->needs(Filesystem::class)->give(function () {
-    return Storage::disk('s3');
-});
-
-->needs('$variableName')
-->give($value);
-
-// EventPusher интерфейс и RedisEventPusher реализация
-$this->app->bind(EventPusher::class, RedisEventPusher::class);
-
-// За пределами поставщика услуг
-App::bind(Transistor::class, function ($app) { });
-
-// Контейнерные события
-// Контейнер службы запускает событие каждый раз, когда разрешает объект.
-// Вы можете прослушать это событие с помощью resolvingметод:
-$this->app->resolving(Transistor::class, function ($transistor, $app) { });
-
-# -------------------------------------------------------------------
-# Разное
-# -------------------------------------------------------------------
-
-$ touch database/database.sqlite DB_CONNECTION=sqlite
-
-# -------------------------------------------------------------------
-# Отладка
-# -------------------------------------------------------------------
-
-// Получить текущий маршрут во view
-$currentRouteAction = \Illuminate\Support\Facades\Route::currentRouteAction();
-
-dd();
-dump();
 
 
