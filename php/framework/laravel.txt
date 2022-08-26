@@ -301,30 +301,224 @@ View (Instance)         Illuminate\View\View
 Vite 	                Illuminate\Foundation\Vite
 
 # -------------------------------------------------------------------
+# | 1 | Маршрутизация (сопоставление запроса и обработчика)
+# App\Providers\RouteServiceProvider
+# routes/web.php
+# routes/api.php (/api)
+# -------------------------------------------------------------------
+
+// Самые простые маршруты Laravel принимают URI и замыкание
+use Illuminate\Support\Facades\Route;
+
+Route::view('/welcome', 'welcome', ['name' => 'Taylor']); // Вид (зарезервированные параметры: view, data, status, а также headers)
+Route::middleware(['first', 'second'])->group(function () { }); // Группировка маршрутов
+Route::controller(OrderController::class)->group(function () { }); // Группа маршрутов с одним и тем же контроллером
+Route::domain('{account}.example.com')->group(function () { }); // Группировка маршрутов для поддоменов
+Route::prefix('admin.')->group(function () { }); // Префиксы в именовании (->name());
+
+Route::get('/greeting', function () { return 'Hello World'; });
+Route::get('/user', [UserController::class, 'index']); // Контроллер
+Route::get($uri, $callback)->name('profile');
+Route::post($uri, $callback);
+Route::put($uri, $callback);
+Route::patch($uri, $callback);
+Route::delete($uri, $callback);
+Route::options($uri, $callback);
+
+Route::match(['get', 'post'], '/', $callback);
+Route::any('/', $callback); // отвечает на все HTTP-команды
+Route::fallback('/', $callback); // маршрут, который будет выполняться, когда ни один другой маршрут не соответствует входящему запросу.
+
+// Ограничения
+// Если входящий запрос не соответствует ограничениям шаблона маршрута, будет возвращен HTTP-ответ 404.
+// App\Providers\RouteServiceProvider public function boot() { Route::pattern('id', '[0-9]+'); }
+Route::get('/user/{id}', function ($id) {})
+->where('name', '[A-Za-z]+');
+->where('id', '[0-9]+');
+->where(['id' => '[0-9]+', 'name' => '[a-z]+']);
+->whereNumber('id')->whereAlpha('name');
+->whereAlphaNumeric('name');
+->whereUuid('id');
+->whereIn('category', ['movie', 'song', 'painting']);
+->where('search', '.*'); // /search/{search}
+
+// CSRF-защита
+Помните, что любые HTML-формы, указывающие на POST, PUT, PATCH, или же DELETE
+маршруты, определенные в webфайл маршрутов должен включать поле токена CSRF.
+<form method="POST" action="/profile">
+
+@method('PUT')
+@csrf
+
+</form>
+
+Route::redirect('/here', '/there'); // 302
+Route::redirect('/here', '/there', 301);
+Route::permanentRedirect('/here', '/there');
+
+Поскольку $userпеременная указана как тип App\Models\UserEloquent модель и имя переменной соответствует {user}
+URI, Laravel автоматически внедрит экземпляр модели, идентификатор которого соответствует соответствующему
+значению из URI запроса. Если соответствующий экземпляр модели не найден в базе данных, автоматически будет сгенерирован HTTP-ответ 404.
+Route::get('/users/{user}/posts/{post:slug}', function (User $user, Post $post) { })->scopeBindings();
+Route::get('/users/{user:id} || /posts/{post:slug}', function (User $user) { return $user->email; })->withTrashed(); // Автовнедрение моделей как тип App\Models\UserEloquent
+Route::get('/users', function (Request $request) { }); // Автозависимости, которые вы хотите, чтобы сервисный контейнер Laravel автоматически вставлял
+Route::get('/posts/{post}/comments/{comment}', function ($postId, $commentId) { });
+->missing(function (Request $request) {
+    return Redirect::route('locations.index'); // Настройка поведения отсутствующей модели
+});
+
+// Enums Неявная привязка перечисления
+use App\Enums\Category;
+enum Category: string
+{
+    case Fruits = 'fruits';
+    case People = 'people';
+}
+Route::get('/categories/{category}', function (Category $category) {
+    return $category->value;
+});
+
+// Явная привязка
+// Вы также можете явно указать, как параметры маршрута соответствуют моделям.
+// Чтобы зарегистрировать явную привязку, используйте modelметод, чтобы указать класс для данного параметра.
+// Вы должны определить свои явные привязки модели в начале bootметод вашего RouteServiceProviderучебный класс:
+RouteServiceProvider
+public function boot()
+{
+    Route::model('user', User::class); //...
+    Route::bind('user', function ($value) {
+        return User::where('name', $value)->firstOrFail();
+    });
+}
+
+// Поскольку мы связали все {user}параметры к App\Models\Userмодели экземпляр этого класса будет внедрен в маршрут.
+// Так, например, запрос на users/1будет вводить Userэкземпляр из базы данных с идентификатором 1.
+Route::get('/users/{user}', function (User $user) { });
+
+$route = Route::current(); // Illuminate\Routing\Route
+$name = Route::currentRouteName(); // string
+$action = Route::currentRouteAction(); // string
+
+# -------------------------------------------------------------------
+# | 2 | Middleware
+# Из коробки webа также apiгруппы промежуточного ПО автоматически
+# применяются к соответствующим routes/web.phpа
+# также routes/api.phpфайлы по App\Providers\RouteServiceProvider
+# -------------------------------------------------------------------
+
+Промежуточное ПО предоставляет удобный механизм проверки и фильтрации HTTP-запросов, поступающих в ваше приложение.
+Например, Laravel включает промежуточное ПО, которое проверяет подлинность пользователя вашего приложения.
+Если пользователь не аутентифицирован, промежуточное ПО перенаправит пользователя на экран входа в ваше приложение.
+Однако, если пользователь аутентифицирован, промежуточное ПО позволит продолжить запрос дальше в приложении.
+
+В  структуру Laravel включено несколько промежуточных программ, включая промежуточное ПО для аутентификации
+  и защиты от CSRF. Все эти промежуточные программы расположены в app/Http/Middlewareкаталог.
+
+Лучше всего представить промежуточное ПО как серию «слоев», через которые должны пройти HTTP-запросы,
+прежде чем они попадут в ваше приложение. Каждый уровень может проверить запрос и даже полностью отклонить его.
+
+1) Глобальное ПО промежуточного слоя (указывается в $middleware в app/Http/Kernel.php)
+2) Назначение ПО промежуточного слоя для маршрутов (указывается в $routeMiddleware в app/Http/Kernel.php)
+3) Группы ($middlewareGroups)
+4) Сортировка промежуточного ПО ($middlewarePriority)
+
+Route::middleware([EnsureTokenIsValid::class])->group(function () {...
+Route::withoutMiddleware([EnsureTokenIsValid::class])->group(function () {...
+Route::get('/', function () {
+    //
+})->middleware(['first', 'second'])
+->middleware(EnsureTokenIsValid::class)
+->middleware('role:editor');
+
+# -------------------------------------------------------------------
+# | 3 | CSRF Protection
+# -------------------------------------------------------------------
+
+// В App\Http\Middleware\VerifyCsrfToken промежуточное ПО , которое входит в web
+// $token = $request->session()->token();
+Laravel автоматически генерирует «токен» CSRF для каждого активного пользовательского сеанса ,
+управляемого приложением. Этот токен используется для проверки того, что аутентифицированный
+пользователь действительно делает запросы к приложению. Поскольку этот токен хранится в сеансе
+пользователя и меняется каждый раз при повторном создании сеанса,
+вредоносное приложение не может получить к нему доступ.
+
+Иногда вам может понадобиться исключить набор URI из защиты CSRF. Например, если вы используете Stripe
+ для обработки платежей и используете их систему веб-перехватчиков, вам необходимо исключить маршрут
+ обработчика веб-перехватчиков Stripe из защиты CSRF, поскольку Stripe не будет знать, какой токен CSRF отправлять на ваши маршруты.
+Для удобства промежуточное ПО CSRF автоматически отключается для всех маршрутов при запуске тестов .
+
+В дополнение к проверке токена CSRF в качестве параметра POST,
+ App\Http\Middleware\VerifyCsrfTokenПО промежуточного слоя также проверит X-CSRF-TOKENзаголовок запроса. Вы можете, например, сохранить токен в HTML metaярлык:
+
+$.ajaxSetup({
+    headers: {
+        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+    }
+});
+
+X-XSRF-ТОКЕН
+
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
+Laravel хранит текущий токен CSRF в зашифрованном XSRF-TOKENcookie, который включается в каждый ответ, созданный платформой.
+ Вы можете использовать значение cookie для установки X-XSRF-TOKENзаголовок запроса.
+
+Этот файл cookie в первую очередь отправляется для удобства разработчиков, поскольку некоторые фреймворки и библиотеки JavaScript,
+ такие как Angular и Axios, автоматически помещают его значение в X-XSRF-TOKENзаголовок для запросов того же происхождения.
+
+По умолчанию resources/js/bootstrap.jsфайл включает HTTP-библиотеку Axios, которая автоматически отправит X-XSRF-TOKENзаголовок для вас.
+
+# -------------------------------------------------------------------
+# | 4 | Controllers
+# -------------------------------------------------------------------
+
+
+
+# -------------------------------------------------------------------
+# | 5 | Модели
+# -------------------------------------------------------------------
+
+// Если вы хотите, чтобы привязка модели всегда использовала столбец базы данных,
+// отличный от idпри извлечении данного класса модели вы можете переопределить getRouteKeyNameметод на модели Eloquent:
+
+public function getRouteKeyName() { return 'slug'; } // getRouteKeyName метод на модели Eloquent:
+
+// Кроме того, вы можете переопределить resolveRouteBindingна вашей модели Eloquent. Этот метод получит значение сегмента URI и должен вернуть экземпляр класса, который следует внедрить в маршрут:
+public function resolveRouteBinding($value, $field = null) { return $this->where('name', $value)->firstOrFail(); }
+
+// Если маршрут использует неявную область привязки , resolveChildRouteBindingметод будет использоваться для разрешения дочерней привязки родительской модели:
+public function resolveChildRouteBinding($childType, $value, $field) { return parent::resolveChildRouteBinding($childType, $value, $field); }
+
+# -------------------------------------------------------------------
 # Команды
 # -------------------------------------------------------------------
 
 $ php artisan about --only=environment
 $ php artisan list make // доступные команды
 $ php artisan storage:link  // создать символическую ссылку  на папку public/storage
-$ php artisan test
-$ php artisan test --coverage // тестовое покрытие с помощью Artisan
-$ php artisan route:list
-
 $ php artisan up // выключить режим обслуживания
 $ php artisan down // включить режим обслуживания (resources/views/errors/503.blade.php), пока ваше приложение находится в режиме обслуживания, задания в очереди обрабатываться не будут.
 
+$ php artisan test
+$ php artisan test --coverage // тестовое покрытие с помощью Artisan
+
+$ php artisan route:list
+$ php artisan route:list -v
+$ php artisan route:list --path=api
+$ php artisan route:list --except-vendor
+$ php artisan route:list --only-vendor
+
 $ php artisan make:provider RiakServiceProvider
+$ php artisan make:middleware EnsureTokenIsValid
 
 # -------------------------------------------------------------------
-# Очистка кэша
+# Очистка кэша (оптимизация)
 # -------------------------------------------------------------------
 
 $ composer install --optimize-autoloader --no-dev // оптимизация на проде
-$ php artisan route:cache
+$ php artisan route:cache // во время развертывания вашего проекта.
 $ php artisan config:cache
 $ php artisan view:cache
-$ php artisan view:clear
 
 # -------------------------------------------------------------------
 # Классы, хелперы, фасады
@@ -340,6 +534,13 @@ use Illuminate\Support\Facades\Response;
 
 use Psr\Container\ContainerInterface; // ContainerInterface $container // $service = $container->get(Transistor::class);
 if (\Illuminate\Support\Facades\App::environment('local')) {}
+
+if ($request->route()->named('profile')) { }
+$url = route('profile');
+$url = route('profile', ['id' => 1, 'photos' => 'yes']); // user/1/profile?photos=yes
+
+return redirect()->route('profile'); // Generating Redirects...
+return to_route('profile');
 
 # -------------------------------------------------------------------
 # Разное
@@ -424,4 +625,11 @@ $table->text('bio')->fullText();
 $table->text('bio')->fullText();
 $users = DB::table('users')->whereFullText('bio', 'web developer')->get();
 
+# -------------------------------------------------------------------
+# ???
+# -------------------------------------------------------------------
 
+1)
+https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#the_http_response_headers
+CORS OPTIONS HTTP requests with values that you configure.
+All CORS settings may be configured in your application's config/cors.php
