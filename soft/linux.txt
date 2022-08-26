@@ -41,6 +41,7 @@ https://www.hostinger.com/tutorials/linux-commands
 >> ps -aux | grep bush
 >> ps -u <username>
 >> ps -u <username>
+>> which и whereis // найти путь к команде в Linux Ubuntu
 
 # -------------------------------------------------------------------
 # Работа с пользователями, группами, правами
