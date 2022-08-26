@@ -472,7 +472,56 @@ Laravel хранит текущий токен CSRF в зашифрованно�
 # | 4 | Controllers
 # -------------------------------------------------------------------
 
+<?php
+// Если действие контроллера особенно сложное,
+// может оказаться удобным посвятить этому единственному действию целый класс контроллера.
+namespace App\Http\Controllers;
+use App\Http\Controllers\Controller;
+use App\Models\User;
 
+// Route::get('/user/{id}', [UserController::class, 'show']);
+// Route::get('/user/{id}', UserController::class); // Одиночное действие
+// Route::resource('photos', PhotoController::class); // Ресурсные контроллеры (CRUD)
+
+Verb 	    URI 	                Action 	    Route Name
+GET 	    /photos 	            index 	    photos.index
+GET 	    /photos/create 	        create 	    photos.create
+POST 	    /photos 	            store 	    photos.store
+GET 	    /photos/{photo} 	    show 	    photos.show
+GET 	    /photos/{photo}/edit 	edit 	    photos.edit
+PUT/PATCH 	/photos/{photo} 	    update 	    photos.update
+DELETE 	    /photos/{photo} 	    destroy 	photos.destroy
+
+class UserController extends Controller
+{
+    /**
+     * Instantiate a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('log')->only('index');
+        $this->middleware('subscribed')->except('store');
+        $this->middleware(function ($request, $next) {
+            return $next($request);
+        });
+    }
+
+    /**
+     * Provision a new web server.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    // public function show($id)
+    public function __invoke()
+    {
+        return view('user.profile', [
+            'user' => User::findOrFail($id)
+        ]);
+    }
+}
 
 # -------------------------------------------------------------------
 # | 5 | Модели
@@ -510,6 +559,9 @@ $ php artisan route:list --only-vendor
 
 $ php artisan make:provider RiakServiceProvider
 $ php artisan make:middleware EnsureTokenIsValid
+$ php artisan make:controller ProvisionServer --invokable // | 4 |
+$ php artisan make:controller PhotoController --resource // | 4 |
+$ php artisan make:controller PhotoController --model=Photo --resource
 
 # -------------------------------------------------------------------
 # Очистка кэша (оптимизация)
