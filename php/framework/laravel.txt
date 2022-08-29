@@ -430,6 +430,16 @@ Route::get('/', function () {
 ->middleware(EnsureTokenIsValid::class)
 ->middleware('role:editor');
 
+Обрезка и нормализация ввода
+По умолчанию Laravel включает промежуточное ПО App\Http\Middleware\TrimStringsи App\Http\Middleware\ConvertEmptyStringsToNullв
+глобальный стек промежуточного ПО вашего приложения. Это ПО промежуточного слоя перечислено в глобальном стеке ПО
+промежуточного слоя по App\Http\Kernelклассам. Это промежуточное ПО автоматически обрезает все входящие строковые поля в запросе,
+ а также преобразует любые пустые строковые поля в файлы null. Это позволяет вам не беспокоиться об этих проблемах нормализации
+  в ваших маршрутах и ​​​​контроллерах.
+
+Если вы хотите отключить это поведение для всех запросов, вы можете удалить два промежуточных ПО
+ из стека промежуточного ПО вашего приложения, удалив их из $middlewareсвойства вашего App\Http\Kernelкласса.
+
 # -------------------------------------------------------------------
 # | 3 | CSRF Protection
 # -------------------------------------------------------------------
@@ -482,6 +492,7 @@ use App\Models\User;
 Route::get('/user/{id}', [UserController::class, 'show']);
 Route::get('/user/{id}', UserController::class); // Одиночное действие
 Route::resource('photos', PhotoController::class); // Ресурсные контроллеры (CRUD)
+Route::resource('photos.comments', PhotoCommentController::class); // Вложенный ресурс (/photos/{photo}/comments/{comment})
 Route::apiResource('photos', PhotoController::class); // Ресурсные контроллеры (Api)
 
 Verb 	    URI 	                Action 	    Route Name
@@ -493,15 +504,35 @@ GET 	    /photos/{photo}/edit 	edit 	    photos.edit
 PUT/PATCH 	/photos/{photo} 	    update 	    photos.update
 DELETE 	    /photos/{photo} 	    destroy 	photos.destroy
 
+// Вложенные маршруты
+Verb	    URI	                                Action	    Route Name
+GET	        /photos/{photo}/comments	        index	    photos.comments.index
+GET	        /photos/{photo}/comments/create	    create	    photos.comments.create
+POST	    /photos/{photo}/comments	        store	    photos.comments.store
+GET	        /comments/{comment}	                show	    comments.show
+GET	        /comments/{comment}/edit	        edit	    comments.edit
+PUT/PATCH	/comments/{comment}	                update	    comments.update
+DELETE	    /comments/{comment}	                destroy	    comments.destroy
+
+// А) Внедрение зависимости через конструктор
+// Б) Внедрение зависимости через метод
+
 class UserController extends Controller
 {
     /**
+     * The user repository instance.
+     */
+    protected $users;
+
+    /**
      * Instantiate a new controller instance.
      *
+     * @param  \App\Repositories\UserRepository  $users
      * @return void
      */
-    public function __construct()
+    public function __construct(UserRepository $users))
     {
+        $this->users = $users;
         $this->middleware('auth');
         $this->middleware('log')->only('index');
         $this->middleware('subscribed')->except('store');
@@ -512,17 +543,113 @@ class UserController extends Controller
 
     /**
      * Provision a new web server.
-     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $id
      * @return \Illuminate\Http\Response
      */
-    // public function show($id)
-    public function __invoke()
+    public function __invoke(Request $request, $id)
     {
+        $name = $request->name;
         return view('user.profile', [
             'user' => User::findOrFail($id)
         ]);
     }
 }
+
+# -------------------------------------------------------------------
+# | 6 | HTTP Requests
+# -------------------------------------------------------------------
+
+Класс Laravel Illuminate\Http\Requestпредоставляет объектно-ориентированный способ взаимодействия с текущим HTTP-запросом,
+обрабатываемым вашим приложением, а также извлекает входные данные, файлы cookie и файлы, которые были отправлены вместе с запросом.
+
+// Illuminate\Http\Request;
+$value = $request->header('X-Header-Name', 'default');
+$name = $request->input('name');
+if ($request->hasHeader('X-Header-Name')) {
+if ($request->isMethod('post')) {
+if ($request->is('admin/*')) {
+if ($request->routeIs('admin.*')) {
+$url = $request->url();
+$uri = $request->path();
+$urlWithQueryString = $request->fullUrl(); // ->fullUrlWithQuery(['type' => 'phone']);
+$request->host();
+$request->httpHost();
+$request->schemeAndHttpHost();
+$ipAddress = $request->ip();
+$method = $request->method();
+$token = $request->bearerToken(); // Для удобства этот bearerTokenметод можно использовать для извлечения
+маркера носителя из Authorizationзаголовка. Если такого заголовка нет, будет возвращена пустая строка:
+
+$contentTypes = $request->getAcceptableContentTypes();
+if ($request->accepts(['text/html', 'application/json'])) {
+
+// Получение ввода
+$value = $request->cookie('name');
+$input = $request->input();
+$input = $request->all();
+$input = $request->collect();
+$request->collect('users')->each(function ($user) {
+$name = $request->input('name', 'Sally');
+$name = $request->input('products.0.name');
+$names = $request->input('products.*.name');
+
+// Получение входных данных из строки запроса
+$name = $request->query('name');
+$name = $request->query('name', 'Helen');
+$query = $request->query();
+$name = $request->string('name')->trim(); // <input type="text"> <textarea> // Получение строковых входных значений
+$archived = $request->boolean('archived'); // <input type="checkbox"> // Получение логических входных значений
+$birthday = $request->date('birthday', '!H:i', 'Europe/Madrid'); // Получение входных значений даты
+$status = $request->enum('status', \App\Enums\Status\Status::class); // Получение входных значений Enum
+
+// Получение части входных данных
+$input = $request->only(['username', 'password']);
+$input = $request->only('username', 'password');
+$input = $request->except(['credit_card']);
+$input = $request->except('credit_card');
+
+if ($request->has('name')) { // определить, присутствует ли значение в запросе
+if ($request->has(['name', 'email'])) { //
+if ($request->hasAny(['name', 'email'])) { // присутствует какое-либо из указанных значений
+if ($request->missing('name')) { // отсутствует ли данный ключ в запросе
+if ($request->filled('name')) { // присутствует ли значение в запросе и не является ли оно пустым
+$request->whenFilled('name', function ($input) {
+$request->whenHas('name', function ($input) {
+    // The "name" value is present...
+}, function () {
+    // The "name" value is not present...
+});
+
+$request->merge(['votes' => 0]);
+$request->mergeIfMissing(['votes' => 0]);
+
+// Старый ввод
+Laravel позволяет вам сохранять ввод из одного запроса во время следующего запроса.
+Эта функция особенно полезна для повторного заполнения форм после обнаружения ошибок проверки.
+Однако, если вы используете включенные в Laravel функции проверки , возможно, вам не потребуется вручную использовать эти методы перепрошивки входных данных сеанса напрямую, поскольку некоторые из встроенных средств проверки Laravel будут вызывать их автоматически.
+
+Метод flashкласса Illuminate\Http\Requestбудет отображать текущий ввод в сеанс ,
+чтобы он был доступен во время следующего запроса пользователя к приложению:
+$request->flash();
+$request->flashOnly(['username', 'email']);
+$request->flashExcept('password');
+return redirect('form')->withInput();
+return redirect()->route('user.create')->withInput();
+return redirect('form')->withInput(
+    $request->except('password')
+);
+
+$username = $request->old('username'); // Чтобы получить флэш-вход из предыдущего запроса
+<input type="text" name="username" value="{{ old('username') }}">
+
+// Получение загруженных файлов
+$file = $request->file('photo');
+if ($request->hasFile('photo')) {
+if ($request->file('photo')->isValid()) { // убедиться в отсутствии проблем с загрузкой файла
+$path = $request->photo->path();
+$extension = $request->photo->extension();
+
 
 # -------------------------------------------------------------------
 # | 5 | Модели
