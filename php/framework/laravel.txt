@@ -723,10 +723,49 @@ Route::get('/', function () {
     return redirect()->route('profile', ['id' => 1]); // /profile/{id}
     return redirect()->route('profile', [$user]); // /profile/{id}
     return redirect()->action([UserController::class, 'index']);
+    return redirect()->action([UserController::class, 'profile'], ['id' => 1]);
+    return redirect()->away('https://www.google.com');
+
+    // Перенаправление с использованием Flashed Session Data
+    @if (session('status'))
+        <div class="alert alert-success">
+            {{ session('status') }}
+        </div>
+    @endif
+    return redirect('dashboard')->with('status', 'Profile updated!');
+
+    // Загрузка файлов
+    return response()->download($pathToFile);
+    return response()->download($pathToFile, $name, $headers);
+    return response()->streamDownload(function () {
+        echo GitHub::api('repo')
+                    ->contents()
+                    ->readme('laravel', 'laravel')['contents'];
+    }, 'laravel-readme.md');
+
+    // для отображения файла, такого как изображение или PDF, непосредственно в браузере пользователя, вместо того, чтобы инициировать загрузку
+    return response()->file($pathToFile);
+    return response()->file($pathToFile, $headers);
 
  });
 
-
+// Макросы (если вы хотите определить пользовательский ответ, который вы можете повторно
+// использовать в различных ваших маршрутах и ​​​​контроллерах)
+return response()->caps('foo');
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Bootstrap any application services.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        Response::macro('caps', function ($value) {
+            return Response::make(strtoupper($value));
+        });
+    }
+}
 
 # -------------------------------------------------------------------
 # | 5 | Модели
