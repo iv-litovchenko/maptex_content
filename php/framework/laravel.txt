@@ -782,7 +782,124 @@ Route::get('/', function () {
 resources/views/admin/profile.blade.php
 <html>
     <body>
+        <!-- Комментарии -->
+        {{-- This comment will not be present in the rendered HTML --}}
+
+        <!-- Эхо -операторы Blade {{ }} автоматически отправляются через htmlspecialcharsфункцию PHP для предотвращения XSS-атак. -->
         <h1>Hello, {{ $name }} <?php echo $name; ?>.</h1>
+
+        <!-- Вы можете поместить любой PHP-код внутрь оператора Blade echo: -->
+        The current UNIX timestamp is {{ time() }}.
+
+        <-- Если вы не хотите, чтобы ваши данные были экранированы, вы можете использовать следующий синтаксис:  -->
+        Hello, {!! $name !!}.
+
+        <!-- Blade и JavaScript-фреймворки -->
+        Hello, @{{ name }}.
+        @@if()
+        @if()
+        <script>
+            var app = {{ Js::from($array) }};
+        </script>
+        @verbatim
+            <div class="container">
+                Hello, {{ name }}.
+            </div>
+        @endverbatim
+
+        <!-- Директивы -->
+        @if (count($records) === 1)
+        @elseif (count($records) > 1)
+        @else
+        @endif
+
+        @unless (Auth::check()) ... @endunless // You are not signed in.
+        @isset($records) ... @endisset
+        @empty($records) ... @endempty
+        @auth('admin') ...  @endauth // The user is authenticated...
+        @guest('admin') ... @endguest // The user is not authenticated...
+        @production ... @endproduction // Production specific content...
+        @env(['staging', 'production']) ... @endenv  // The application is running in "staging" or "production"...
+
+        @hasSection('navigation')
+            <div class="pull-right">
+                @yield('navigation')
+            </div>
+        @endif
+        @sectionMissing('navigation')
+            <div class="pull-right">
+                @include('default-navigation')
+            </div>
+        @endif
+
+        @switch($i)
+            @case(1) First case... @break
+            @case(2) Second case... @break
+            @default Default case...
+        @endswitch
+
+        @for ($i = 0; $i < 10; $i++)  The current value is {{ $i }} @endfor
+        @foreach ($users as $user)  <p>This is user {{ $user->id }}</p>
+            @continue($user->type == 1)
+            @break($user->number == 5)
+            $loop->index	Индекс текущей итерации цикла (начинается с 0).
+            $loop->iteration	Текущая итерация цикла (начинается с 1).
+            $loop->remaining	Итерации, оставшиеся в цикле.
+            $loop->count	Общее количество элементов в итерируемом массиве.
+            $loop->first	Является ли это первой итерацией цикла.
+            $loop->last	Является ли это последней итерацией цикла.
+            $loop->even	Является ли это четной итерацией цикла.
+            $loop->odd	Является ли это нечетной итерацией цикла.
+            $loop->depth	Уровень вложенности текущего цикла.
+            $loop->parent	Во вложенном цикле переменная родительского цикла.
+            @if ($loop->first)
+            @if ($loop->last)
+            @if ($loop->parent->first)
+        @endforeach
+        @forelse ($users as $user)
+            <li>{{ $user->name }}</li>
+        @empty
+            <p>No users</p>
+        @endforelse
+
+        @while (true)
+            <p>I'm looping forever.</p>
+        @endwhile
+
+        // Условные классы
+        @php // Сырой PHP
+            $isActive = false;
+            $hasError = true;
+        @endphp
+        <span @class([
+            'p-4',
+            'font-bold' => $isActive,
+            'text-gray-500' => ! $isActive,
+            'bg-red' => $hasError,
+        ])></span>
+        <span class="p-4 text-gray-500 bg-red"></span>
+
+        // Дополнительные атрибуты
+        <button type="submit" @disabled($errors->isNotEmpty()) @readonly($user->isNotAdmin())  @required($user->isAdmin())>Submit</button>
+        <input type="checkbox" name="active" value="active" @checked(old('active', $user->active)) />
+        <select name="version">
+            @foreach ($product->versions as $version)
+                <option value="{{ $version }}" @selected(old('version') == $version)>
+                    {{ $version }}
+                </option>
+            @endforeach
+        </select>
+
+        // Включение подвидов
+        @include('shared.errors')
+        @include('view.name', ['status' => 'complete'])
+        @includeIf('view.name', ['status' => 'complete'])
+        @includeWhen($boolean, 'view.name', ['status' => 'complete'])
+        @includeUnless($boolean, 'view.name', ['status' => 'complete'])
+        @includeFirst(['custom.admin', 'admin'], ['status' => 'complete'])
+        @each('view.name', $jobs, 'job')
+        @each('view.name', $jobs, 'job', 'view.empty')
+
     </body>
 </html>
 
