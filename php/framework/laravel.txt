@@ -126,6 +126,7 @@ $this->app->resolving(Transistor::class, function ($transistor, $app) { });
 
 # -------------------------------------------------------------------
 # Поставщики услуг (Service Providers)
+# $ php artisan make:provider RiakServiceProvider
 # -------------------------------------------------------------------
 
 Поставщики услуг являются центральным местом для начальной загрузки всех приложений Laravel.
@@ -305,6 +306,11 @@ Vite 	                Illuminate\Foundation\Vite
 # App\Providers\RouteServiceProvider
 # routes/web.php
 # routes/api.php (/api)
+# $ php artisan route:list
+# $ php artisan route:list -v
+# $ php artisan route:list --path=api
+# $ php artisan route:list --except-vendor
+# $ php artisan route:list --only-vendor
 # -------------------------------------------------------------------
 
 // Самые простые маршруты Laravel принимают URI и замыкание
@@ -401,6 +407,7 @@ $action = Route::currentRouteAction(); // string
 
 # -------------------------------------------------------------------
 # | 2 | Middleware
+# $ php artisan make:middleware EnsureTokenIsValid
 # Из коробки webа также apiгруппы промежуточного ПО автоматически
 # применяются к соответствующим routes/web.phpа
 # также routes/api.phpфайлы по App\Providers\RouteServiceProvider
@@ -505,6 +512,9 @@ Laravel хранит текущий токен CSRF в зашифрованно�
 
 # -------------------------------------------------------------------
 # | 4 | Controllers
+# $ php artisan make:controller ProvisionServer --invokable // | 4 |
+# $ php artisan make:controller PhotoController --resource // | 4 |
+# $ php artisan make:controller PhotoController --model=Photo --resource
 # -------------------------------------------------------------------
 
 <?php
@@ -769,6 +779,9 @@ class AppServiceProvider extends ServiceProvider
 
 # -------------------------------------------------------------------
 # | 8 | Views
+# $ php artisan make:component Alert // app/View/Components, resources/views/components
+# $ php artisan make:component Forms/Input // в подкаталоге
+# $ php artisan make:component forms.input --view // анонимный компонент без класса // <x-forms.input />
 # -------------------------------------------------------------------
 use Illuminate\Support\Facades\View;
 Route::get('/', function () {
@@ -900,6 +913,22 @@ resources/views/admin/profile.blade.php
         @each('view.name', $jobs, 'job')
         @each('view.name', $jobs, 'job', 'view.empty')
 
+        @once
+            @push('scripts')
+                <script>
+                    // Your custom JavaScript...
+                </script>
+            @endpush
+        @endonce
+        @pushOnce('scripts')
+            <script>
+                // Your custom JavaScript...
+            </script>
+        @endPushOnce
+
+        // Составные части (Components: компоненты и слоты)
+        // Существует два подхода к написанию компонентов: компоненты на основе классов и анонимные компоненты.
+
     </body>
 </html>
 
@@ -960,26 +989,10 @@ $ php artisan storage:link  // создать символическую ссы�
 $ php artisan up // выключить режим обслуживания
 $ php artisan down // включить режим обслуживания (resources/views/errors/503.blade.php), пока ваше приложение находится в режиме обслуживания, задания в очереди обрабатываться не будут.
 
-
 $ php artisan test
 $ php artisan test --coverage // тестовое покрытие с помощью Artisan
 
-$ php artisan route:list
-$ php artisan route:list -v
-$ php artisan route:list --path=api
-$ php artisan route:list --except-vendor
-$ php artisan route:list --only-vendor
-
-$ php artisan make:provider RiakServiceProvider
-$ php artisan make:middleware EnsureTokenIsValid
-$ php artisan make:controller ProvisionServer --invokable // | 4 |
-$ php artisan make:controller PhotoController --resource // | 4 |
-$ php artisan make:controller PhotoController --model=Photo --resource
-
-# -------------------------------------------------------------------
-# Очистка кэша (оптимизация)
-# -------------------------------------------------------------------
-
+// Очистка кэша (оптимизация)
 $ composer install --optimize-autoloader --no-dev // оптимизация на проде
 $ php artisan route:cache // во время развертывания вашего проекта.
 $ php artisan config:cache
