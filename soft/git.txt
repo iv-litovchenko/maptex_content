@@ -33,6 +33,7 @@
 >> git config --global user.email "iv-litovchenko@mail.ru" // установка почты автора коммитов
 >> git config --global push.default matching // Настройка для push
 >> git config --global push.default simple // Настройка для push
+>> git config --global core.fileMode false
 >> git config core.fileMode false // Не учитывать права на файлы
 
 // Добавить удаленный репозиторий
