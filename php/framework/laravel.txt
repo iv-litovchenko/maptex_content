@@ -782,14 +782,22 @@ class AppServiceProvider extends ServiceProvider
 # $ php artisan make:component Alert // app/View/Components, resources/views/components
 # $ php artisan make:component Forms/Input // в подкаталоге
 # $ php artisan make:component forms.input --view // анонимный компонент без класса // <x-forms.input />
+# $ php artisan make:component Alert --inline
 # -------------------------------------------------------------------
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Blade;
 Route::get('/', function () {
     return view('admin.profile', $data)->with('name', 'Victoria')->with('occupation', 'Astronaut');
     return view('greeting', ['name' => 'James']);
     return View::make('greeting', ['name' => 'James']);
     return View::first(['custom.admin', 'admin'], $data);
     if (View::exists('emails.customer')) { }
+
+    return Blade::render(
+        'Hello, {{ $name }}',
+        ['name' => 'Julian Bashir'],
+        deleteCachedView: true
+    );
 });
 
 resources/views/admin/profile.blade.php
@@ -936,6 +944,7 @@ resources/views/admin/profile.blade.php
         {
             // <x-inputs.button/> // вложенность
             // <x-alert type="error" :message="$message"/> // передача параметров
+            Blade::anonymousComponentNamespace('flights.bookings.components', 'flights'); // <x-flights::panel :flight="$flight" />
             Blade::component('package-alert', Alert::class); // <x-package-alert/>
             Blade::componentNamespace('Nightshade\\Views\\Components', 'nightshade'); // <x-nightshade::calendar />
                                                                                          <x-nightshade::color-picker />
@@ -967,6 +976,33 @@ class ViewServiceProvider extends ServiceProvider
         // Представления «создатели» очень похожи на представления составителей;
         // однако они выполняются сразу после создания экземпляра представления, а не ждут, пока представление будет готово к рендерингу.
         // View::creator('profile', ProfileCreator::class);
+
+        // Пользовательские директивы
+        // <?php echo ($var)->format('m/d/Y H:i'); ?>
+        Blade::directive('datetime', function ($expression) {
+            return "<?php echo ($expression)->format('m/d/Y H:i'); ?>";
+        });
+
+        // Cost: {{ $money }}
+        Blade::stringable(function (Money $money) {
+            return $money->formatTo('en_GB');
+        });
+
+        // Пользовательские операторы If
+        Blade::if('disk', function ($value) {
+            return config('filesystems.default') === $value;
+        });
+        @disk('local')
+            <!-- The application is using the local disk... -->
+        @elsedisk('s3')
+            <!-- The application is using the s3 disk... -->
+        @else
+            <!-- The application is using some other disk... -->
+        @enddisk
+
+        @unlessdisk('local')
+            <!-- The application is not using the local disk... -->
+        @enddisk
     }
 }
 
@@ -974,26 +1010,208 @@ class ViewServiceProvider extends ServiceProvider
 Когда выполняется запрос, отображающий представление, Laravel определяет,
 существует ли скомпилированная версия представления.
 
+// Компоненты
+
 <?php
 
 namespace App\View\Components;
-
 use Illuminate\View\Component;
-
+use App\Services\AlertCreator;
 class Alert extends Component
 {
+    // @aware директива не может получить доступ к родительским данным, которые не переданы явно родительскому компоненту
+    // через атрибуты HTML. По умолчанию @props значения, которые не переданы явно родительскому компоненту,
+    // не могут быть доступны @aware директива.
+
+    // <x-dynamic-component :component="$componentName" class="mt-4" />
+    // /resources/views/components/accordion.blade.php
+    // /resources/views/components/accordion/item.blade.php
+    <x-accordion>
+        <x-accordion.item>
+            ...
+        </x-accordion.item>
+    </x-accordion>
+
+    // <x-alert alert-type="danger" />
+    // <x-button ::class="{ danger: isDeleting }">
+    // <button :class="{ danger: isDeleting }">
+    // <div class="alert alert-{{ $type }}" {{ $attributes }}
+    // <div {{ $attributes->merge(['class' => 'alert alert-'.$type]) }}>
+    // <div {{ $attributes->class(['p-4', 'bg-red' => $hasError]) }}>
+    // <div {{ $attributes->merge(['data-controller' => $attributes->prepends('profile-controller')]) }}>
+    // <button {{ $attributes->class(['p-4'])->merge(['type' => 'button']) }}>
+    // <button {{ $attributes->merge(['type' => 'button']) }}>
+    // {{ $attributes->filter(fn ($value, $key) => $key == 'foo') }}
+    // {{ $attributes->whereStartsWith('wire:model') }}
+    // {{ $attributes->whereStartsWith('wire:model') }}
+    // {{ $attributes->whereDoesntStartWith('wire:model') }}
+    // {{ $attributes->whereStartsWith('wire:model')->first() }}
+    // @if ($attributes->has('class'))
+    // {{ $attributes->get('class') }}
+    //    {{ $message }}
+    //      Все атрибуты, не являющиеся частью конструктора компонента,
+    //      будут автоматически добавлены в «набор атрибутов» компонента. {{ $attributes }}
+    // </div>
     public $type;
+    public $type2;
     public $message;
-    public function __construct($type, $message)
+    protected $except = ['type2']; // Чтобы некоторые общедоступные методы или свойства не отображались как переменные в шаблоне компонента
+    public function __construct(AlertCreator $creator, $type, $message, $alertType)
     {
+        $this->creator = $creator; // Из сервис контейнера
         $this->type = $type;
         $this->message = $message;
+        $this->alertType = $alertType;
     }
     public function render()
     {
         return view('components.alert');
+        return function (array $data) {
+            // $data['componentName'];
+            // $data['attributes'];
+            // $data['slot'];
+            return '<div>Components content</div>';
+        };
+        return <<<'blade'
+            <div class="alert alert-danger">
+                {{ $slot }}
+            </div>
+        blade;
+    }
+    // Выполнить этот метод из своего шаблона компонента, вызвав переменную, соответствующую имени метода:
+    // <option {{ $isSelected($value) ? 'selected="selected"' : '' }} value="{{ $value }}">
+    //    {{ $label }}
+    // </option>
+    public function isSelected($option)
+    {
+        return $option === $this->selected;
     }
 }
+
+// Зарезервированные ключевые слова
+По умолчанию некоторые ключевые слова зарезервированы для внутреннего использования Blade для визуализации компонентов.
+Следующие ключевые слова не могут быть определены как общедоступные свойства или имена методов в ваших компонентах
+
+* data
+* render
+* resolveView
+* shouldRender
+* view
+* withAttributes
+* withName
+
+// Слоты
+<!-- /resources/views/components/alert.blade.php -->
+@props([
+    'heading',
+    'footer',
+])
+<div class="alert alert-danger">
+    {{ $slot }}
+</div>
+<x-alert>
+    <strong>Whoops!</strong> Something went wrong!
+</x-alert>
+
+// Макеты с использованием наследования шаблонов
+<!-- resources/views/layouts/app.blade.php -->
+<html>
+    <head>
+        <title>App Name - @yield('title', 'Default content') {{ $title ?? 'Todo Manager' }}</title>
+    </head>
+    <body>
+        @section директива, определяет раздел содержимого,
+        @yield директива используется для отображения содержимого данного раздела
+        @section('sidebar')
+            This is the master sidebar.
+        @show
+        <div class="container">
+            @yield('content', 'Default content')
+        </div>
+    </body>
+</html>
+
+// Расширение макета
+// @extends Директива Blade, чтобы указать, какой макет должен «наследовать» дочерний вид.
+<!-- resources/views/child.blade.php -->
+@extends('layouts.app')
+@section('title', 'Page Title'
+@section('sidebar')
+    @parent
+    <p>This is appended to the master sidebar.</p>
+@endsection
+@section('content')
+    <p>This is my body content.</p>
+@endsection
+
+// В отличие от предыдущего примера, этот sidebar
+// раздел заканчивается на @endsectionв место @show. @endsection
+// директива будет определять только раздел, в то время как @showопределит и немедленно раздел.
+
+// Формы
+<form method="POST" action="/profile">
+    @csrf
+    @method('PUT')
+
+    @error('title', 'email', 'login')
+        <div class="alert alert-danger">{{ $message }}</div>
+    @enderror
+    <input id="email"
+        type="email"
+        class="@error('email') is-invalid @else is-valid @enderror">
+
+    ...
+</form>
+
+// Сервисная инъекция
+// В @inject Директива может использоваться для извлечения службы из контейнера служб .
+// Первый аргумент передается @inject— это имя переменной, в которую будет помещена служба, а второй аргумент — это имя класса или интерфейса службы, которую вы хотите разрешить:
+@inject('metrics', 'App\Services\MetricsService')
+
+<div>
+    Monthly Revenue: {{ $metrics->monthlyRevenue() }}.
+</div>
+
+# -------------------------------------------------------------------
+# | 9 | Asset Bundling (Vite) - ранее webpack.mix
+# Vite для объединения файлов CSS и JavaScript вашего приложения в готовые ресурсы
+# file: vite.config.js
+# $ npm run dev
+# $ npm run build
+# -------------------------------------------------------------------
+
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    server: {
+        https: true,
+        host: 'localhost',
+    },
+    plugins: [
+        vue({
+            template: {
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
+        }),
+        laravel([
+            'resources/css/app.css',
+            'resources/js/app.js',
+        ]),
+    ],
+});
+
+<!doctype html>
+<head>
+    {{-- ... --}}
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite('resources/js/app.js', 'vendor/courier/build')
+</head>
+
 
 # -------------------------------------------------------------------
 # | 5 | Модели
