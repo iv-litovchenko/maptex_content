@@ -1176,12 +1176,19 @@ class Alert extends Component
 # | 9 | Asset Bundling (Vite) - ранее webpack.mix
 # Vite для объединения файлов CSS и JavaScript вашего приложения в готовые ресурсы
 # file: vite.config.js
+# file: .env (ASSET_URL=https://cdn.example.com)
+# file: .env (VITE_SENTRY_DSN_PUBLIC=http://example.com)
 # $ npm run dev
 # $ npm run build
 # -------------------------------------------------------------------
 
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
+import.meta.env.VITE_SENTRY_DSN_PUBLIC
+import.meta.glob([
+  '../images/**',
+  '../fonts/**',
+]);
 
 export default defineConfig({
     server: {
@@ -1211,7 +1218,83 @@ export default defineConfig({
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @vite('resources/js/app.js', 'vendor/courier/build')
 </head>
+<body>
+<img src="{{ Vite::asset('resources/images/logo.png') }}">
+</body>
 
+// Отключение Vite в тестах
+use Tests\TestCase;
+class ExampleTest extends TestCase
+{
+    public function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutVite();
+    }
+
+    public function test_without_vite_example()
+    {
+        $this->withoutVite();
+    }
+}
+
+# -------------------------------------------------------------------
+# | 10 | Генерация ссылок (URL Generation)
+# -------------------------------------------------------------------
+
+
+
+# -------------------------------------------------------------------
+# | 11 | HTTP Session
+# config/session.php
+# $ php artisan session:table // драйвер database
+# $ php artisan migrate // драйвер database
+# -------------------------------------------------------------------
+
+Драйвера:
+* file- сеансы хранятся в storage/framework/sessions.
+* cookie- сеансы хранятся в безопасных, зашифрованных файлах cookie.
+* database- сеансы хранятся в реляционной базе данных.
+* memcached/ redis- сеансы хранятся в одном из этих быстрых хранилищ на основе кэша.
+* dynamodb- сеансы хранятся в AWS DynamoDB.
+* array- сеансы хранятся в массиве PHP и не сохраняются.
+
+// Оба метода проверяются с помощью assertSessionHasметод, который доступен во всех ваших тестовых примерах.
+$value = session('key');
+$value = session('key', 'default');
+session(['key' => 'value']);
+$value = $request->session()->get('key');
+$value = $request->session()->get('key', 'default');
+$value = $request->session()->get('key', function () {
+    return 'default';
+});
+
+$data = $request->session()->all();
+if ($request->session()->has('users')) { }
+if ($request->session()->exists('users')) { }
+if ($request->session()->missing('users')) { }
+$request->session()->put('key', 'value');
+$request->session()->push('user.teams', 'developers'); // Отправка значений сеанса в массив
+$value = $request->session()->pull('key', 'default'); // Получение и удаление элемента
+$request->session()->increment('count');
+$request->session()->increment('count', $incrementBy = 2);
+$request->session()->decrement('count');
+$request->session()->decrement('count', $decrementBy = 2);
+
+// Флэш-данные
+// После последующего HTTP-запроса прошитые данные будут удалены.
+// Флэш-данные в первую очередь полезны для кратковременных сообщений о состоянии
+$request->session()->flash('status', 'Task was successful!');
+$request->session()->reflash();
+$request->session()->keep(['username', 'email']);
+$request->session()->now('status', 'Task was successful!'); // только для текущего запроса
+$request->session()->forget('name');
+$request->session()->forget(['name', 'status']);
+$request->session()->flush();
+
+// Повторное создание идентификатора сеанса
+$request->session()->regenerate(); // вручную повторно сгенерировать идентификатор сеанса
+$request->session()->invalidate(); // повторно сгенерировать идентификатор сеанса и удалить все данные из сеанса
 
 # -------------------------------------------------------------------
 # | 5 | Модели
