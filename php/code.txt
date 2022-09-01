@@ -1,0 +1,28 @@
+/////////////////////////////////////////////////////////////////////?
+$date_start = "2022-06-01"; // Старт файла с 1 июня 2022 года.
+$this->db->where('DATE_FORMAT(orders.date, "%Y-%m-%d")>=', date("Y-m-d", strtotime($date_start)));
+
+/////////////////////////////////////////////////////////////////////?
+class Order_model extends MY_Model
+{
+    const PAYMENT_OFFLINE = 0;
+    const PAYMENT_ONLINE = 1;
+
+        static public function getPaymentOptions()
+        {
+            return [
+                self::PAYMENT_OFFLINE => 'Оплата в офисе',
+                self::PAYMENT_ONLINE => 'Оплата онлайн',
+            ];
+        }
+
+        static public function getPaymentMapper()
+        {
+            return [
+                self::PAYMENT_OFFLINE => 'branch',
+                self::PAYMENT_ONLINE => 'online',
+            ];
+        }
+}
+
+/////////////////////////////////////////////////////////////////////?
