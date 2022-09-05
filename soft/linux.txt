@@ -60,8 +60,8 @@ https://www.hostinger.com/tutorials/linux-commands
 # -------------------------------------------------------------------
 
 >> sudo apt-get update || upgrade //  обновить пакеты
->> sudo apt get install vim // установить пакет
->> sudo apt get remove vim // удалить пакет
+>> sudo apt-get install vim // установить пакет
+>> sudo apt-get remove vim // удалить пакет
 >> firefox // запустить приложение (пакет)
 >> apt-cache policy vim // поиск программы на компе
 >> apt-cache search vim // поиск программы по стандартным репозиториям)

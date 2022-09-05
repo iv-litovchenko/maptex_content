@@ -1,8 +1,12 @@
-/////////////////////////////////////////////////////////////////////?
+/////////////////////////////////////////////////////////////////////
+// Пример выборки по дате "DATE_FORMAT"
+
 $date_start = "2022-06-01"; // Старт файла с 1 июня 2022 года.
 $this->db->where('DATE_FORMAT(orders.date, "%Y-%m-%d")>=', date("Y-m-d", strtotime($date_start)));
 
-/////////////////////////////////////////////////////////////////////?
+/////////////////////////////////////////////////////////////////////
+// Пример маппинга
+
 class Order_model extends MY_Model
 {
     const PAYMENT_OFFLINE = 0;
@@ -25,4 +29,29 @@ class Order_model extends MY_Model
         }
 }
 
-/////////////////////////////////////////////////////////////////////?
+/////////////////////////////////////////////////////////////////////
+// Пример выборки Join
+
+$date_start = "2022-06-01"; // Старт файла с 1 июня 2022года.
+$this->db->where('DATE_FORMAT(orders.date, "%Y-%m-%d")>=', date("Y-m-d", strtotime($date_start)));
+$this->db->order_by('id', 'DESC');
+$query = $this->db->select('orders.id,'
+    . 'orders.date,'
+    . 'orders.coming,'
+    . 'orders.total,'
+    . 'orders.total_online_pay,'
+    . 'orders.status,'
+    . 'orders.payment,'
+    . 'service_to_order.service_id,'
+    . 'users.name AS user_name,'
+    . 'users.email,'
+    . 'users.phone,'
+    . 'filial.name AS filial_name,'
+    . 'filial.payment AS filial_payment,'
+    . 'filial.link AS filial_link')->
+    from('orders')->
+    join('users', 'users.id=orders.users_id', 'left')->
+    join('filial', 'filial.id=orders.filial_id', 'left')->
+    join('service_to_order', 'service_to_order.orders_id=orders.id', 'left')->
+    group_by('id')->
+    get();

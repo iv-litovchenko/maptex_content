@@ -1242,7 +1242,53 @@ class ExampleTest extends TestCase
 # | 10 | Генерация ссылок (URL Generation)
 # -------------------------------------------------------------------
 
+use Illuminate\Support\Facades\URL;
+$post = App\Models\Post::find(1);
+echo url("/posts/{$post->id}");
+echo URL::current();
+echo url()->current();
+echo url()->full(); // Get the current URL including the query string...
+echo url()->previous();
+echo route('post.show', ['post' => 1]);
+echo route('comment.show', ['post' => 1, 'comment' => 3]);
 
+$url = action([HomeController::class, 'index']);
+$url = action([UserController::class, 'profile'], ['id' => 1]);
+
+// Подписанные URL
+return URL::signedRoute('unsubscribe', ['user' => 1]);
+return URL::temporarySignedRoute(
+    'unsubscribe', now()->addMinutes(30), ['user' => 1]
+);
+    // Проверка подписанных запросов маршрута
+    if (! $request->hasValidSignature()) {
+        abort(401);
+    }
+    if (! $request->hasValidSignatureWhileIgnoring(['page', 'order'])) {
+        abort(401);
+    }
+
+    protected $routeMiddleware = [
+        'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
+    ];
+    Route::post('/unsubscribe/{user}', function (Request $request) {
+        // ...
+    })->name('unsubscribe')->middleware('signed');
+
+// Значения по умолчанию
+<?php
+namespace App\Http\Middleware;
+use Closure;
+use Illuminate\Support\Facades\URL;
+class SetDefaultLocaleForUrls
+{
+    public function handle($request, Closure $next)
+    {
+        URL::defaults(['locale' => $request->user()->locale]);
+
+        return $next($request);
+    }
+}
 
 # -------------------------------------------------------------------
 # | 11 | HTTP Session
@@ -1295,6 +1341,142 @@ $request->session()->flush();
 // Повторное создание идентификатора сеанса
 $request->session()->regenerate(); // вручную повторно сгенерировать идентификатор сеанса
 $request->session()->invalidate(); // повторно сгенерировать идентификатор сеанса и удалить все данные из сеанса
+
+# -------------------------------------------------------------------
+# | 12 | Validation (валидация данных)
+# $ php artisan make:request StorePostRequest // настраиваемые классы запросов, которые инкапсулируют собственную логику проверки и авторизации
+# protected $stopOnFirstFailure = true;
+# protected $redirect = '/dashboard';
+# protected $redirectRoute = 'dashboard';
+# public function authorize()
+  {
+      $comment = Comment::find($this->route('comment'));
+      return $comment && $this->user()->can('update', $comment);
+  }
+  protected function prepareForValidation()
+  {
+      $this->merge([
+          'slug' => Str::slug($this->slug),
+      ]);
+  }
+# -------------------------------------------------------------------
+
+Laravel предлагает несколько разных подходов к проверке входящих данных вашего приложения.
+Чаще всего используют validateметод, доступный для всех входящих HTTP-запросов.
+
+Route::get('/post/create', [PostController::class, 'create']); // отобразит форму для пользователя
+Route::post('/post', [PostController::class, 'store']); // сохранит новую запись блога в базе данных
+
+Если правила проверки пройдены, ваш код продолжит нормально выполняться;
+однако, если проверка не пройдена, Illuminate\Validation\ValidationException
+будет выдано исключение, и правильный ответ об ошибке будет автоматически отправлен обратно пользователю.
+
+Если проверка не пройдена во время традиционного HTTP-запроса, будет сгенерирован ответ перенаправления на предыдущий URL-адрес.
+Если входящий запрос является запросом XHR, ответ JSON, содержащий сообщения об ошибках проверки будет возвращен
+
+<?php
+
+namespace App\Http\Controllers;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
+class PostController extends Controller
+{
+    public function create()
+    {
+        $title = $request->old('title'); // получить флэш-ввод из предыдущего запроса
+        return view('post.create');
+    }
+
+    public function store(Request $request)
+    {
+        // Если проверка не пройдена, правильный ответ будет сгенерирован автоматически.
+        // Если проверка пройдена, наш контроллер продолжит работу в обычном режиме
+        // Все ошибки проверки и ввод запроса будут автоматически переданы в сеанс .
+        // Во время запроса XHR, Laravel генерирует ответ JSON, содержащий все ошибки проверки . Этот ответ JSON будет отправлен с кодом состояния HTTP 422.
+        // $errors переменная является общей для всех представлений вашего приложения Illuminate\View\Middleware\ShareErrorsFromSessionпромежуточное ПО
+        $validatedData = $request->validateWithBag('post', [ // метод для проверки запроса и сохранения любых сообщений об ошибках в именованном пакете ошибок
+        $validated = $request->validate([
+            'title' => 'required|unique:posts|max:255',
+            'title' => 'bail|required', // "bail" остановить выполнение правил проверки для атрибута после первой неудачной проверки
+            'body' => 'required',
+            'author.name' => 'required', // вложенные
+            'author.description' => 'required',
+            'publish_at' => 'nullable|date', // если вы не хотите, чтобы валидатор рассматривал nullзначения как недействительные
+        ]);
+
+        // Если проверка не пройдена, будет сгенерирован ответ перенаправления, чтобы отправить пользователя обратно в его предыдущее местоположени
+        $validated = $request->validated();
+        $validated = $request->safe()->only(['name', 'email']);
+        $validated = $request->safe()->except(['name', 'email']);
+
+        // Хук после проверки
+        $validator->after(function ($validator) {
+            if ($this->somethingElseIsInvalid()) {
+                $validator->errors()->add(
+                    'field', 'Something is wrong with this field!'
+                );
+            }
+        });
+
+        $validator->after(function ($validator) {
+            if ($this->somethingElseIsInvalid()) {
+                $validator->errors()->add('field', 'Something is wrong with this field!');
+            }
+        });
+
+        $validator = Validator::make($request->all(), [
+            'title' => 'required|unique:posts|max:255',
+            'body' => 'required',
+        ]);
+
+        if ($validator->stopOnFirstFailure()->fails()) {
+        if ($validator->fails()) {
+            return redirect('post/create')
+                        ->withErrors($validator)
+                        ->withInput();
+        }
+
+        $validated = $validator->validated();
+        return redirect('register')->withErrors($validator, 'login');  // Если на странице несколько форм
+
+        $validated = $request->safe()->merge(['name' => 'Taylor Otwell']);
+        $collection = $request->safe()->collect();
+        $validated = $request->validated();
+        $validated = $validator->validated();
+        $validated = $request->safe()->only(['name', 'email']);
+        $validated = $request->safe()->except(['name', 'email']);
+        $validated = $request->safe()->all();
+
+        $errors = $validator->errors();
+        echo $errors->first('email');
+        foreach ($errors->get('email') as $message) { }
+        foreach ($errors->get('attachments.*') as $message) { }
+        foreach ($errors->all() as $message) { }
+        if ($errors->has('email')) { }
+    }
+}
+
+<h1>Create Post</h1>
+
+{{ $errors->login->first('email') }} // Если несколько форм на странице
+@if ($errors->any())
+    <div class="alert alert-danger">
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+@error('title')
+    <div class="alert alert-danger">{{ $message }}</div>
+@enderror
+
+<input type="text" name="title" value="{{ old('title') }}">
+<input ... class="@error('title', 'post') is-invalid @enderror">
+<input id="title" type="text" name="title" class="@error('title') is-invalid @enderror">
 
 # -------------------------------------------------------------------
 # | 5 | Модели
