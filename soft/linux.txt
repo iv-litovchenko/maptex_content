@@ -37,6 +37,7 @@ https://www.hostinger.com/tutorials/linux-commands
 >> dpdk // версия системы
 >> free -h // свободная память
 >> top // список работающих программ; сортировка: SHFIT+P || SHIFT+M; выход: q
+>> service --status-all
 >> ps -aux // список запущенных процессов (ID), кто их запустил (все пользователи)
 >> ps -aux | grep bush
 >> ps -u <username>
@@ -167,6 +168,7 @@ https://www.hostinger.com/tutorials/linux-commands
 // SSH (подключение к удаленному компьютеру-серверу)
 // Нужно разрешить 22 порт
 >> ssh <server> // подключение к другому удаленноум Linux
+>> ssh root@127.0.0.1 -p2410
 >> sudo ufw allow 22 // разрешить 22 порт, необходимый для работы SSH
 >> w // список подключенных пользователей
 

@@ -22,6 +22,7 @@
 # -------------------------------------------------------------------
 
 >> composer init
+>> composer info
 >> composer -v
 >> composer --version
 >> composer run-script build:app
