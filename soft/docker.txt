@@ -35,3 +35,16 @@ $ docker exec -it <php-apache-ID> bash // провалится в контейн
 $ docker exec -it <php-apache-ID> /bin/sh // провалится в контейнер v2
 $ docker-compose exec -T <php-apache-ID> composer run-script build:app  --- пересобрать проект на докере
 $ docker-compose exec -T <php-apache-ID> php artisan ...
+
+# -------------------------------------------------------------------
+# ??? Права
+# -------------------------------------------------------------------
+
+$ touch start.sh && sudo chmod +x start.sh && nano start.sh
+DockerFile
+RUN groupadd --gid 1000 <NAME-GROUP>
+RUN useradd --uid 1000 --gid <NAME-GROUP> --shell /bin/bash --create-home <NAME-USER>
+
+WORKDIR /var/www/html
+ADD . /var/www/html
+
