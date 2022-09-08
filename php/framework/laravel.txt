@@ -1719,6 +1719,242 @@ Cache::restoreLock('processing', $this->owner)->release();
 Cache::lock('processing')->forceRelease();
 
 # -------------------------------------------------------------------
+# | 18 | Коллекции (В Illuminate\Support\Collectionclass)
+# Предоставляет беглую удобную оболочку для работы с массивами данных.
+# -------------------------------------------------------------------
+
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+
+Collection::macro('toUpper', function () {
+    return $this->map(function ($value) {
+        return Str::upper($value);
+    });
+});
+$collection = collect(['first', 'second']);
+$upper = $collection->toUpper();
+
+$collect = collect([1, 2, 3])->all(); // возвращает базовый массив, представленный коллекцией
+$array = $collection->toArray();
+$values = $collection->values();
+
+$average = collect([1, 1, 2, 4])->avg(); // среднее значение
+$sum = collect([1, 2, 3, 4, 5])->sum();
+
+$chunks = $collection->chunk(4); // разбивает коллекцию на несколько меньших коллекций заданного размера
+$collapsed = $collection->collapse(); // сворачивает коллекцию массивов в одну плоскую коллекцию
+$collection->count();
+$counted = $collection->countBy();
+$sorted = $collection->sort();
+$sorted = $collection->sortBy('title', SORT_NATURAL);
+
+$first = collect([1, 2, 3, 4])->first();
+$last = collect([1, 2, 3, 4])->last();
+$collection->firstWhere('name', 'Linda');
+$collection->forget('name'); // удалить
+$value = $collection->get('name');
+$collection->has('product');
+$filtered = $collection->filter(function ($value, $key) {
+    return $value > 2;
+});
+
+collect([])->isEmpty();
+collect([])->isNotEmpty();
+$person = $person->undot();
+
+# -------------------------------------------------------------------
+# | 19 | Контракты
+# «Контракты» Laravel — это набор интерфейсов, которые определяют основные сервисы, предоставляемые фреймворком.
+# Например, Illuminate\Contracts\Queue\Queueконтракт определяет методы, необходимые для постановки заданий в очередь
+# Каждый контракт имеет соответствующую реализацию, предусмотренную фреймворком.
+# -------------------------------------------------------------------
+
+Laravel Фасады обеспечивают простой способ использования сервисов Laravel без необходимости указывать тип и разрешать контракты из сервисного контейнера.
+В большинстве случаев на каждый фасад имеется эквивалентный контракт.
+
+В отличие от фасадов, которые не требуют, чтобы вы требовали их
+в конструкторе вашего класса, контракты позволяют вам определять явные зависимости для ваших классов.
+
+# -------------------------------------------------------------------
+# | 20 | Events (События)
+# App\Providers\EventServiceProvider // Регистрация событий и слушателей
+# app/Listeners
+# app/Events
+# $ php artisan event:list
+# $ php artisan event:generate
+# $ php artisan make:event PodcastProcessed
+# $ php artisan make:listener SendPodcastNotification --event=PodcastProcessed
+# $ php artisan event:cache
+# $ php artisan event:clear
+# -------------------------------------------------------------------
+
+События Laravel обеспечивают простую реализацию шаблона наблюдателя,
+позволяя вам подписываться и прослушивать различные события, происходящие в вашем приложении.
+
+Классы событий обычно хранятся в app/Eventsкаталог,
+в то время как их слушатели хранятся в app/Listeners.
+одно событие может иметь несколько прослушивателей, которые не зависят друг от друга
+
+protected $listen = [
+    OrderShipped::class => [
+        SendShipmentNotification::class,
+    ],
+];
+
+// Обнаружение событий отключено по умолчанию, но вы можете включить его, переопределив shouldDiscoverEventsметод вашего приложения
+public function shouldDiscoverEvents()
+{
+    return true;
+}
+
+public function boot()
+{
+    Event::listen('event.*', function ($eventName, array $data) {
+    Event::listen(queueable(function (PodcastProcessed $event) {
+    Event::listen(queueable(function (PodcastProcessed $event) {
+        //
+    })->onConnection('redis')->onQueue('podcasts')->delay(now()->addSeconds(10)));
+}
+
+Класс события — это, по сути, контейнер данных, который содержит информацию, связанную с событием.
+Например, давайте предположим App\Events\OrderShipped
+
+Прослушиватели событий получают экземпляры событий в свои handleметод.
+В event:generateа также make:listener. Иногда вы можете захотеть остановить передачу события другим слушателям.
+Вы можете сделать это, вернувшись falseот вашего слушателя handleметод.
+
+Постановка слушателей в очередь может быть полезна, если ваш слушатель собирается выполнять медленную задачу,
+такую ​​как отправка электронной почты или выполнение HTTP-запроса
+Чтобы указать, что слушатель должен быть поставлен в очередь, добавьте ShouldQueueинтерфейс к классу слушателя.
+
+Подписчики событий — это классы, которые могут подписываться на несколько событий из самого класса подписчика,
+что позволяет определить несколько обработчиков событий в одном классе. Подписчики должны определить subscribe
+метод, которому будет передан экземпляр диспетчера событий. Вы можете позвонить в listenметод
+ в данном диспетчере для регистрации прослушивателей событий:
+
+# -------------------------------------------------------------------
+# | 21 | File Storage (Файловое хранилище)
+# config/filesystems.php
+# $ php artisan storage:link // Для создания символической ссылки
+# -------------------------------------------------------------------
+
+Laravel предоставляет мощную абстракцию файловой системы благодаря замечательному Flysystem от Франка де Йонге.
+Интеграция Laravel Flysystem предоставляет простые драйверы для работы с локальными файловыми системами, SFTP и Amazon S3.
+В publicдиск, включенный в ваше приложение filesystemsфайл конфигурации предназначен для файлов, которые будут общедоступными.
+Чтобы сделать эти файлы доступными из Интернета, вы должны создать символическую ссылку из public/storageк storage/app/public.
+
+Storage::disk('local')->put('example.txt', 'Contents'); // storage/app/example.txt
+Storage::put('avatars/1', $content); // для сохранения аватара на диске по умолчанию
+Storage::disk('s3')->put('avatars/1', $content); // Если ваше приложение взаимодействует с несколькими дисками
+$contents = Storage::get('file.jpg');
+if (Storage::disk('s3')->exists('file.jpg')) { } // определить, существует ли файл на диске
+if (Storage::disk('s3')->missing('file.jpg')) { } // определить, отсутствует ли файл на диске:
+return Storage::download('file.jpg', $name, $headers); // Загрузка файлов
+$url = Storage::url('file.jpg'); // URL-адреса файлов
+$url = Storage::temporaryUrl(
+    'file.jpg', now()->addMinutes(5)
+);
+
+$size = Storage::size('file.jpg');
+$time = Storage::lastModified('file.jpg');
+$path = Storage::path('file.jpg');
+
+Storage::put('file.jpg', $contents);
+Storage::put('file.jpg', $resource);
+if (! Storage::put('file.jpg', $contents)) { }
+
+Storage::prepend('file.log', 'Prepended Text'); // писать в начало файла
+Storage::append('file.log', 'Appended Text'); // писать в конец файла
+Storage::copy('old/file.jpg', 'new/file.jpg');
+Storage::move('old/file.jpg', 'new/file.jpg');
+
+$path = Storage::putFile('photos', new File('/path/to/photo'));
+$path = Storage::putFileAs('photos', new File('/path/to/photo'), 'photo.jpg');
+
+echo asset('storage/file.txt'); // .env (ASSET_URL)
+$url = asset('img/photo.jpg'); // http://example.com/assets/img/photo.jpg
+$url = secure_asset('img/photo.jpg'); // https
+$url = secure_url('user/profile');
+
+$path = $request->file('avatar')->store('avatars');
+$path = Storage::putFile('avatars', $request->file('avatar'));
+$path = $request->file('avatar')->storeAs(
+    'avatars', $request->user()->id
+);
+$path = $request->file('avatar')->store(
+    'avatars/'.$request->user()->id, 's3'
+);
+
+$file = $request->file('avatar');
+$name = $file->getClientOriginalName();
+$extension = $file->getClientOriginalExtension();
+$name = $file->hashName();
+$extension = $file->extension();
+
+Storage::delete('file.jpg');
+Storage::delete(['file.jpg', 'file2.jpg']);
+Storage::disk('s3')->delete('path/file.jpg');
+
+$files = Storage::files($directory); // Получить все файлы в каталоге
+$files = Storage::allFiles($directory); // включая все подкаталоги
+$directories = Storage::directories($directory); // Получить все каталоги в каталоге
+$directories = Storage::allDirectories($directory);
+Storage::makeDirectory($directory); // Создать каталог
+Storage::deleteDirectory($directory); // Удалить каталог
+
+# -------------------------------------------------------------------
+# | 22 | Helpers (Помощники)
+# Laravel включает множество глобальных «вспомогательных» функций PHP.
+# -------------------------------------------------------------------
+
+$path = app_path('Http/Controllers/Controller.php');
+$path = base_path('vendor/bin');
+$path = config_path('app.php');
+$path = database_path('factories/UserFactory.php');
+$path = lang_path('en/messages.php');
+$path = public_path('css/app.css');
+$path = resource_path('sass/app.scss');
+$path = storage_path('app/file.txt');
+$path = mix('css/app.css');
+
+echo __('messages.welcome');
+$class = class_basename('Foo\Bar\Baz');
+$converted = Str::camel('foo_bar'); // fooBar
+$converted = Str::kebab('fooBar'); // foo-bar
+$converted = Str::of('foo_bar')->camel(); // fooBar
+$converted = Str::of('fooBar')->snake(); // foo_bar
+$converted = Str::of('foo_bar')->studly(); // FooBar
+$traits = class_uses_recursive(App\Models\User::class); // Функция возвращает все черты, используемые классом, включая черты, используемые всеми его родительскими классами
+echo e('<html>foo</html>'); // htmlspecialchars()
+
+$string = Str::mask('taylor@example.com', '*', 3); // tay***************
+$string = Str::mask('taylor@example.com', '*', -15, 3);
+$string = Str::of('/foo/bar/baz.jpg')->basename('.jpg');
+$html = Str::of('**Laravel**')->inlineMarkdown();
+$result = Str::of('foo bar')->match('/foo (.*)/');
+
+abort(403);
+abort(403, 'Unauthorized.', $headers);
+abort_if(! Auth::user()->isAdmin(), 403);
+abort_unless(Auth::user()->isAdmin(), 403);
+
+$container = app(); // В appфункция возвращает сервисного контейнера экземпляр
+$api = app('HelpSpot\API');
+$user = auth()->user();
+$user = auth('admin')->user();
+return back($status = 302, $headers = [], $fallback = '/');
+
+$value = config('app.timezone', $default);
+$env = env('APP_ENV', 'production');
+
+dispatch(new App\Jobs\SendEmails); // функция помещает данное задание Laravel очередь заданий
+event(new UserRegistered($user)); // функция отправляет данное событие своим слушателям:
+dd($value1, $value2, $value3, ...);
+dump($value1, $value2, $value3, ...);
+info('Some helpful information!');
+logger('User has logged in.', ['id' => $user->id]);
+
+# -------------------------------------------------------------------
 # | 5 | Модели
 # -------------------------------------------------------------------
 
@@ -1866,3 +2102,10 @@ $users = DB::table('users')->whereFullText('bio', 'web developer')->get();
 https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#the_http_response_headers
 CORS OPTIONS HTTP requests with values that you configure.
 All CORS settings may be configured in your application's config/cors.php
+
+// Поверхностно просмотрел
+// https://laravel.com/docs/9.x/broadcasting (не изучил)
+// https://laravel.com/docs/9.x/validation
+// https://laravel.com/docs/9.x/collections
+// https://laravel.com/docs/9.x/collections#lazy-collection-introduction
+// https://laravel.com/docs/9.x/helpers
