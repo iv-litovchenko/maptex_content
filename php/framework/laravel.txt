@@ -1553,6 +1553,172 @@ Log::info($message);
 Log::debug($message);
 
 # -------------------------------------------------------------------
+# | 15 | Artisan Console (Консоль ремесленника )
+# Artisan — это интерфейс командной строки, включенный в Laravel
+# App\Console\Kernel.php // Регистрация команд
+# config/tinker.php
+# -------------------------------------------------------------------
+
+$ php artisan list
+$ php artisan help migrate
+$ php artisan make:command SendEmails
+
+$ php artisan tinker // позволяет вам взаимодействовать со всем вашим приложением Laravel в командной строке
+$ php artisan vendor:publish --provider="Laravel\Tinker\TinkerServiceProvider"
+
+protected $signature = 'mail:send {user}';
+protected $signature = 'mail:send {user?}';
+protected $signature = 'mail:send {user=foo}';
+protected $signature = 'mail:send {user} {--queue}'; // опции ($php artisan mail:send 1 --queue)
+protected $signature = 'mail:send {user} {--queue=}';
+
+use App\Models\User;
+use App\Support\DripEmailer;
+
+Artisan::command('mail:send {user}', function (DripEmailer $drip, $user) {
+    $drip->send(User::find($user));
+})->purpose('Описание команды');
+
+public function handle()
+{
+    $userId = $this->argument('user');
+    $arguments = $this->arguments();
+
+    $queueName = $this->option('queue');
+    $options = $this->options();
+
+    $name = $this->ask('What is your name?'); // запрос на ввод
+    $password = $this->secret('What is the password?');
+    if ($this->confirm('Do you wish to continue?')) { } // запрос подтверждения
+    if ($this->confirm('Do you wish to continue?', true)) { }
+    $name = $this->anticipate('What is your name?', ['Taylor', 'Dayle']); // Автозаполнение
+    $name = $this->anticipate('What is your address?', function ($input) {
+        // Return auto-completion options...
+    });
+
+    // Вопросы с несколькими вариантами ответов
+    $name = $this->choice(
+        'What is your name?',
+        ['Taylor', 'Dayle'],
+        $defaultIndex,
+        $maxAttempts = null,
+        $allowMultipleSelections = false
+    );
+
+    // Отправить вывод на консоль
+    $this->info('The command was successful!');
+    $this->error('Something went wrong!');
+    $this->line('Display this on the screen');
+    $this->newLine(3);
+    $this->table(
+        ['Name', 'Email'],
+        User::all(['name', 'email'])->toArray()
+    );
+
+    // 1/3 [=========>------------------]  33%
+    $users = $this->withProgressBar(User::all(), function ($user) {
+        $this->performTask($user);
+    });
+    $bar = $this->output->createProgressBar(count($users));
+    $bar->start();
+    foreach ($users as $user) {
+        $this->performTask($user);
+        $bar->advance();
+    }
+    $bar->finish();
+
+}
+
+// Запуск команд
+Artisan::call('mail:send 1 --queue=default');
+Route::post('/user/{user}/mail', function ($user) {
+    $exitCode = Artisan::call('mail:send', [
+        'user' => $user, '--queue' => 'default'
+    ]);
+});
+
+# -------------------------------------------------------------------
+# | 16 | -
+# -------------------------------------------------------------------
+
+# -------------------------------------------------------------------
+# | 17 | Cache (Кэш)
+# config/cache.php
+# Memcached , Redis , DynamoDB , File, Database ($php artisan cache:table)
+# -------------------------------------------------------------------
+
+Некоторые из задач извлечения или обработки данных, выполняемых вашим приложением, могут сильно нагружать ЦП
+ или выполняться несколько секунд. В этом случае принято кэшировать полученные данные на время,
+ чтобы их можно было быстро извлечь при последующих запросах тех же данных. Кэшированные данные обычно хранятся
+ в очень быстром хранилище данных, таком как Memcached или Redis .
+
+use Illuminate\Support\Facades\Cache;
+$value = Cache::get('key');
+$value = Cache::store('file')->get('foo');
+Cache::store('redis')->put('bar', 'baz', 600); // 10 Minutes
+$value = Cache::get('key');
+$value = Cache::get('key', 'default');
+$value = Cache::get('key', function () {
+    return DB::table(/* ... */)->get();
+});
+if (Cache::has('key')) { }
+Cache::increment('key');
+Cache::increment('key', $amount);
+Cache::decrement('key');
+Cache::decrement('key', $amount);
+$value = Cache::rememberForever('users', function () { // Извлечение элемента из кеша или сохранения его навсегда
+$value = Cache::remember('users', $seconds, function () { // Получить и сохранить
+    return DB::table('users')->get();
+});
+$value = Cache::pull('key'); // Получить и удалить
+
+Cache::put('key', 'value', $seconds = 10);
+Cache::put('key', 'value', now()->addMinutes(10));
+Cache::add('key', 'value', $seconds); // добавит элемент в кеш только в том случае, если он еще не существует
+Cache::forever('key', 'value');
+
+// Удаление
+Cache::forget('key');
+Cache::put('key', 'value', 0);
+Cache::put('key', 'value', -5);
+Cache::flush();
+
+// Тэги (не для всех драйверов)
+Cache::tags(['people', 'artists'])->put('John', $john, $seconds);
+Cache::tags(['people', 'authors'])->put('Anne', $anne, $seconds);
+$john = Cache::tags(['people', 'artists'])->get('John');
+$anne = Cache::tags(['people', 'authors'])->get('Anne');
+Cache::tags(['people', 'authors'])->flush();
+Cache::tags('authors')->flush();
+
+// Блокировки
+Cache::lock('foo', 10)->block(5, function () { //
+$lock = Cache::lock('foo', 10);
+if ($lock->get()) {
+    // Lock acquired for 10 seconds...
+    $lock->release();
+}
+
+use Illuminate\Contracts\Cache\LockTimeoutException;
+$lock = Cache::lock('foo', 10);
+try {
+    $lock->block(5);
+    // Lock acquired after waiting a maximum of 5 seconds...
+} catch (LockTimeoutException $e) {
+    // Unable to acquire lock...
+} finally {
+    optional($lock)->release();
+}
+
+$podcast = Podcast::find($id);
+$lock = Cache::lock('processing', 120);
+if ($lock->get()) {
+    ProcessPodcast::dispatch($podcast, $lock->owner());
+}
+Cache::restoreLock('processing', $this->owner)->release();
+Cache::lock('processing')->forceRelease();
+
+# -------------------------------------------------------------------
 # | 5 | Модели
 # -------------------------------------------------------------------
 
