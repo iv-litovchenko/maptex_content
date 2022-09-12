@@ -1955,6 +1955,103 @@ info('Some helpful information!');
 logger('User has logged in.', ['id' => $user->id]);
 
 # -------------------------------------------------------------------
+# | 23 | HTTP-клиент (Guzzle)
+# -------------------------------------------------------------------
+
+use Illuminate\Support\Facades\Http;
+$response = Http::get('http://example.com'); // можно использовать для проверки ответа
+$response->body() : string;
+$response->json($key = null) : array|mixed;
+$response->object() : object;
+$response->collect($key = null) : Illuminate\Support\Collection;
+$response->status() : int;
+$response->ok() : bool;
+$response->successful() : bool;
+$response->redirect(): bool;
+$response->failed() : bool;
+$response->serverError() : bool;
+$response->clientError() : bool;
+$response->header($header) : string;
+$response->headers() : array;
+
+return Http::get('http://example.com/users/1')['name']; // JSON
+return Http::dd()->get('http://example.com');
+$response = Http::asForm()->post('http://example.com/users', [ // application/x-www-form-urlencoded
+$response = Http::get('http://example.com/users', [
+$response = Http::post('http://example.com/users', [
+    'name' => 'Steve',
+    'role' => 'Network Administrator',
+]);
+
+$response = Http::withHeaders([
+    'X-First' => 'foo',
+    'X-Second' => 'bar'
+])->post('http://example.com/users', [
+    'name' => 'Taylor',
+]);
+
+# -------------------------------------------------------------------
+# | 24 | Почта
+# config/mail.php
+# php artisan make:mail OrderShipped
+# return $this->view('emails.orders.shipped');
+# resources/views/emails
+# -------------------------------------------------------------------
+
+
+<?php
+
+namespace App\Mail;
+
+use App\Models\Order;
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class OrderShipped extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    protected $order;
+
+    public function __construct(Order $order)
+    {
+        $this->order = $order;
+    }
+
+    public function build()
+    {
+        return $this->view('emails.orders.shipped')
+                    ->tag('shipment')
+                    ->metadata('order_id', $this->order->id);
+                    ->attachFromStorageDisk('s3', '/path/to/file');
+                    ->attachFromStorage('/path/to/file', 'name.pdf', [
+                        'mime' => 'application/pdf'
+                    ])
+                    ->attach('/path/to/file')
+                    ->attach('/path/to/file', [
+                        'as' => 'name.pdf',
+                        'mime' => 'application/pdf',
+                    ])
+                    ->with([
+                        'orderName' => $this->order->name,
+                        'orderPrice' => $this->order->price,
+                    ]);
+    }
+}
+
+<div>
+    Price: {{ $orderPrice }}
+    <img src="{{ $message->embed($pathToImage) }}">
+</div>
+
+Mail::to($request->user())->send(new OrderShipped($order));
+Mail::to($request->user())
+    ->cc($moreUsers)
+    ->bcc($evenMoreUsers)
+    ->send(new OrderShipped($order));
+
+# -------------------------------------------------------------------
 # | 5 | Модели
 # -------------------------------------------------------------------
 
@@ -2109,3 +2206,5 @@ All CORS settings may be configured in your application's config/cors.php
 // https://laravel.com/docs/9.x/collections
 // https://laravel.com/docs/9.x/collections#lazy-collection-introduction
 // https://laravel.com/docs/9.x/helpers
+// https://laravel.com/docs/9.x/http-client
+// https://laravel.com/docs/9.x/localization
