@@ -1998,7 +1998,6 @@ $response = Http::withHeaders([
 # resources/views/emails
 # -------------------------------------------------------------------
 
-
 <?php
 
 namespace App\Mail;
@@ -2050,6 +2049,40 @@ Mail::to($request->user())
     ->cc($moreUsers)
     ->bcc($evenMoreUsers)
     ->send(new OrderShipped($order));
+
+# -------------------------------------------------------------------
+# | 25 | Уведомления
+# php artisan make:notification InvoicePaid
+# -------------------------------------------------------------------
+
+Помимо поддержки отправки электронной почты , Laravel обеспечивает поддержку отправки уведомлений по различным каналам доставки,
+включая электронную почту, SMS (через Vonage , ранее известное как Nexmo) и Slack .
+
+Как правило, уведомления должны быть короткими информационными сообщениями, уведомляющими пользователей о том, что произошло в вашем приложении.
+Например, если вы пишете приложение для выставления счетов, вы можете отправить своим пользователям уведомление «Счет оплачен»
+по электронной почте и через SMS-каналы.
+
+<?php
+namespace App\Models;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+class User extends Authenticatable
+{
+    use Notifiable;
+}
+
+use App\Notifications\InvoicePaid;
+use Illuminate\Support\Facades\Notification;
+$user->notify(new InvoicePaid($invoice));
+Notification::send($users, new InvoicePaid($invoice));
+Notification::sendNow($developers, new DeploymentCompleted($deployment));
+$delay = now()->addMinutes(10);
+$user->notify((new InvoicePaid($invoice))->delay($delay));
+
+# -------------------------------------------------------------------
+# | 26 | Package Development
+# -------------------------------------------------------------------
+
 
 # -------------------------------------------------------------------
 # | 5 | Модели
@@ -2208,3 +2241,4 @@ All CORS settings may be configured in your application's config/cors.php
 // https://laravel.com/docs/9.x/helpers
 // https://laravel.com/docs/9.x/http-client
 // https://laravel.com/docs/9.x/localization
+// https://laravel.com/docs/9.x/notifications

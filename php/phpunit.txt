@@ -1,0 +1,4 @@
+$message = '<h1>Header</h1>';
+$response = $this->get($url);
+$response->assertStatus(200);
+$response->assertSee($message, $escaped = true);

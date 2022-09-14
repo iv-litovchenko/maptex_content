@@ -1,0 +1,27 @@
+<?php
+
+////////////////////////////////////////////////////////////////
+// Ассоциация
+$team = new \Test\AssociationTeam('Command 1');
+$player = new \Test\AssociationPlayer();
+$player->setTeam($team);
+echo $player->getTeam()->getName();
+echo '<br />';
+
+////////////////////////////////////////////////////////////////
+// Композиция
+$test = new \Test\Composition();
+echo $test->run('Test msg composition');
+echo '<br />';
+
+////////////////////////////////////////////////////////////////
+// Агрегация
+$object = new \Test\B();
+$test = new \Test\Aggregation($object);
+echo $test->run('Test msg aggregation');
+echo '<br />';
+
+////////////////////////////////////////////////////////////////
+// Внедрение зависимостей (DI)
+
+?>
