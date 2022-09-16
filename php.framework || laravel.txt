@@ -2081,8 +2081,17 @@ $user->notify((new InvoicePaid($invoice))->delay($delay));
 
 # -------------------------------------------------------------------
 # | 26 | Package Development
+# $ php artisan vendor:publish
+# $ php artisan vendor:publish --tag=public --force
 # -------------------------------------------------------------------
 
+use VendorPackage\View\Components\AlertComponent;
+public function boot()
+{
+    Blade::component('package-alert', AlertComponent::class); // <x-package-alert/>
+    Blade::componentNamespace('Nightshade\\Views\\Components', 'nightshade'); // <x-nightshade::calendar />
+                                                                                 <x-nightshade::color-picker />
+}
 
 # -------------------------------------------------------------------
 # | 5 | Модели
