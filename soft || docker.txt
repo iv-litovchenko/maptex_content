@@ -21,6 +21,7 @@ $ sudo chmod 750 /usr/bin/docker-compose // to allow docker group users to execu
 # Команды
 # -------------------------------------------------------------------
 
+$ docker network ls
 $ docker ps // список активных процессов
 $ docker ps -a // список активных и не активных процессов
 $ docker stop $(docker ps -a -q) // остановить все процессы
