@@ -2094,6 +2094,71 @@ public function boot()
 }
 
 # -------------------------------------------------------------------
+# | 27 | Queues (очереди)
+# config/queue.php
+# драйверы Amazon SQS, Redis, реляционная база данных, null (без добавления в очередь, выполняется сразу)
+# $ php artisan queue:work --queue=high,default // Запуск работника очереди
+# $ php artisan queue:restart
+# $ php artisan make:job ProcessPodcast
+
+# Дравер Database (QUEUE_CONNECTION=database)
+# $ php artisan queue:table
+# $ php artisan queue:failed-table
+# $ php artisan migrate // создать задание
+# -------------------------------------------------------------------
+
+При создании веб-приложения у вас могут возникнуть некоторые задачи, такие как синтаксический анализ и сохранение загруженного CSV-файла,
+выполнение которых во время обычного веб-запроса занимает слишком много времени. К счастью, Laravel позволяет легко создавать задания в очереди,
+которые могут выполняться в фоновом режиме.
+
+use App\Jobs\ProcessPodcast;
+ProcessPodcast::dispatch();
+
+
+<?php
+
+use App\Jobs\Middleware\RateLimited;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeUnique; // может быть только 1 (уникальный) экземпляр определенного задания в очереди
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing; // работа была разблокирована непосредственно перед ее обработкой
+class UpdateSearchIndex implements ShouldQueue, ShouldBeUnique, ShouldBeUniqueUntilProcessing
+{
+    public $backoff = 3; // солько секунд Laravel должен ждать перед повторной попыткой задания
+    public $tries = 5;
+    public $uniqueFor = 3600;
+    public function uniqueId()
+    {
+        return $this->product->id;
+    }
+    public function middleware()
+    {
+        return [new RateLimited];
+    }
+    public function handle()
+    {
+        $this->release(); // вернуть задание в очередь, чтобы его можно было повторить позже
+        $this->fail(); // сбой задания вручную
+    }
+}
+
+// Отправка в очередь
+$podcast = Podcast::create(/* ... */);
+ProcessPodcast::dispatch($podcast);
+ProcessPodcast::dispatch($podcast)->delay(now()->addMinutes(10)); // запустить через 10 минут
+ProcessPodcast::dispatchSync($podcast); // немедленная отправка
+ProcessPodcast::dispatch()->onQueue('emails'); // оптравка в очередь "emails"
+Bus::chain([ // цепочка заданий
+    new ProcessPodcast,
+    new OptimizePodcast,
+    function () {
+        Podcast::update(/* ... */);
+    },
+])->catch(function (Throwable $e) {
+    // A job within the chain has failed...
+})->onConnection('redis')->onQueue('processing')->dispatch();
+
+
+# -------------------------------------------------------------------
 # | 5 | Модели
 # -------------------------------------------------------------------
 
@@ -2251,3 +2316,5 @@ All CORS settings may be configured in your application's config/cors.php
 // https://laravel.com/docs/9.x/http-client
 // https://laravel.com/docs/9.x/localization
 // https://laravel.com/docs/9.x/notifications
+// https://laravel.com/docs/9.x/rate-limiting (не изучил)
+// https://laravel.com/docs/9.x/queues
