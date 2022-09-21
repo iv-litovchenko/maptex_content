@@ -2097,14 +2097,21 @@ public function boot()
 # | 27 | Queues (очереди)
 # config/queue.php
 # драйверы Amazon SQS, Redis, реляционная база данных, null (без добавления в очередь, выполняется сразу)
-# $ php artisan queue:work --queue=high,default // Запуск работника очереди
-# $ php artisan queue:restart
 # $ php artisan make:job ProcessPodcast
-
+# $ php artisan queue:monitor  // мониторинг ваших очередей
+# $ php artisan queue:work --queue=high,default // запуск работника очереди
+# $ php artisan queue:restart
+# $ php artisan queue:failed // просмотреть все невыполненные задания, которые были вставлены в failed_jobsтаблицу базы данных
+# $ php artisan queue:retry all // повторить все неудачные задания
+# $ php artisan queue:flush // удалить все невыполненные задания
+# $ php artisan queue:clear // удалить все задания из очереди
 # Дравер Database (QUEUE_CONNECTION=database)
 # $ php artisan queue:table
 # $ php artisan queue:failed-table
 # $ php artisan migrate // создать задание
+
+// Чтобы процесс queue:work постоянно работал в фоновом режиме, вы должны использовать монитор процесса, такой как Supervisor,
+// чтобы гарантировать, что рабочий процесс очереди не остановится.
 # -------------------------------------------------------------------
 
 При создании веб-приложения у вас могут возникнуть некоторые задачи, такие как синтаксический анализ и сохранение загруженного CSV-файла,
@@ -2113,7 +2120,6 @@ public function boot()
 
 use App\Jobs\ProcessPodcast;
 ProcessPodcast::dispatch();
-
 
 <?php
 
@@ -2157,6 +2163,43 @@ Bus::chain([ // цепочка заданий
     // A job within the chain has failed...
 })->onConnection('redis')->onQueue('processing')->dispatch();
 
+# -------------------------------------------------------------------
+# | 28 | Task Scheduling (Планирование задач)
+# app/Console/Kernel.php (Определение расписаний)
+# $ php artisan schedule:list // просмотреть обзор ваших запланированных задач
+# -------------------------------------------------------------------
+
+Планировщик команд Laravel предлагает новый подход к управлению запланированными задачами на вашем сервере.
+Планировщик позволяет вам свободно и выразительно определять расписание команд в самом приложении Laravel.
+При использовании планировщика на вашем сервере требуется только одна запись cron.
+
+<?php
+namespace App\Console;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\DB;
+class Kernel extends ConsoleKernel
+{
+    protected function schedule(Schedule $schedule)
+    {
+        $schedule->exec('node /home/forge/script.js')->daily();
+        $schedule->command('emails:send Taylor --force')->daily();
+        $schedule->command(SendEmailsCommand::class, ['Taylor', '--force'])->daily();
+        $schedule->job(new Heartbeat, 'heartbeats', 'sqs')->everyFiveMinutes();
+        $schedule->call(new DeleteRecentUsers)->daily(); // содержащие __invoke() метод
+        $schedule->call(function () {
+            DB::table('recent_users')->delete();
+        })->daily();
+        $schedule->command('foo')
+                  ->weekdays() // параметры частоты расписания
+                  ->hourly() // дополнительных ограничений расписания
+                  ->timezone('America/Chicago')
+                  ->between('8:00', '17:00');
+
+        // будет запускаться каждую минуту, если она еще не запущена. withoutOverlapping
+        $schedule->command('emails:send')->withoutOverlapping(); // предотвращение дублирования задач
+    }
+}
 
 # -------------------------------------------------------------------
 # | 5 | Модели
