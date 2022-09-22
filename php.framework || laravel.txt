@@ -1552,6 +1552,30 @@ Log::notice($message);
 Log::info($message);
 Log::debug($message);
 
+    // config/logging.php
+
+    return [
+       ...
+      'channels' => [
+        'stack' => [
+          'driver' => 'stack',
+          'name' => 'channel-name',
+          'channels' => ['single', 'slack'],
+        ],
+
+        'single' => [
+          'driver' => 'single',
+          'level' => 'debug',
+        ],
+
+        'slack' => [
+          'driver' => 'slack',
+          'url' => env('LOG_SLACK_WEBHOOK_URL'),
+          'level' => 'critical',
+        ],
+        ...
+    ];
+
 # -------------------------------------------------------------------
 # | 15 | Artisan Console (Консоль ремесленника )
 # Artisan — это интерфейс командной строки, включенный в Laravel
@@ -2167,6 +2191,9 @@ Bus::chain([ // цепочка заданий
 # | 28 | Task Scheduling (Планирование задач)
 # app/Console/Kernel.php (Определение расписаний)
 # $ php artisan schedule:list // просмотреть обзор ваших запланированных задач
+# $ php artisan schedule:work // локальный запуск планировщика
+# Запланированные задачи вашего приложения не будут выполняться, когда приложение находится в режиме обслуживания
+# * * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
 # -------------------------------------------------------------------
 
 Планировщик команд Laravel предлагает новый подход к управлению запланированными задачами на вашем сервере.
@@ -2198,6 +2225,86 @@ class Kernel extends ConsoleKernel
 
         // будет запускаться каждую минуту, если она еще не запущена. withoutOverlapping
         $schedule->command('emails:send')->withoutOverlapping(); // предотвращение дублирования задач
+        ->onOneServer();
+        ->evenInMaintenanceMode(); // принудительно запустить задачу даже в режиме обслуживания
+    }
+}
+
+# -------------------------------------------------------------------
+# | 29 | Authentication (Аутентификация)
+# config/auth.php
+# По своей сути средства аутентификации Laravel состоят из «охранников» и «провайдеров».
+# Охранники определяют, как пользователи аутентифицируются для каждого запроса. Например, Laravel поставляется с sessionGuard, который поддерживает состояние, используя хранилище сеансов и файлы cookie.
+# Провайдеры определяют, как пользователи извлекаются из вашего постоянного хранилища. Laravel поставляется с поддержкой извлечения пользователей с помощью Eloquent и построителя запросов к базе данных. Однако вы можете определить дополнительных поставщиков, если это необходимо для вашего приложения.
+# remember_token столбец из 100 символов. Этот столбец будет использоваться для хранения токена для пользователей, выбравших опцию «запомнить меня» при входе в ваше приложение
+# Файл cookie, выданный браузеру, содержит идентификатор сеанса, чтобы последующие запросы к приложению могли связать пользователя с правильным сеансом.
+# Когда удаленной службе необходимо пройти аутентификацию для доступа к API, файлы cookie обычно не используются для аутентификации, поскольку веб-браузер отсутствует. Вместо этого удаленная служба отправляет токен API в API при каждом запросе. Приложение может проверить входящий токен по таблице действительных токенов API и «аутентифицировать» запрос как выполненный пользователем, связанным с этим токеном API.
+
+# Службы аутентификации API Laravel
+# aravel предоставляет два дополнительных пакета, которые помогут вам в управлении токенами API и аутентификации запросов, сделанных с помощью токенов API: Passport и Sanctum .
+# -------------------------------------------------------------------
+
+if (Auth::check()) { }
+$user = Auth::user();
+$id = Auth::id();
+
+Route::get('/flights', function () { })->middleware('auth'); // Only authenticated users may access this route...
+Route::get('/profile', function () { })->middleware('auth.basic');
+
+if (Auth::guard('admin')->attempt($credentials)) {
+if (Auth::attempt($credentials)) {
+    $request->session()->regenerate();
+    return redirect()->intended('dashboard'); // перенаправит пользователя на URL-адрес, к которому он пытался получить доступ
+}
+
+Auth::login($user, $remember = true);
+Auth::guard('admin')->login($user);
+Auth::loginUsingId(1);
+Auth::loginUsingId(1, $remember = true);
+if (Auth::once($credentials)) {
+
+Auth::logout();
+Auth::logoutOtherDevices($currentPassword);
+$request->session()->invalidate();
+$request->session()->regenerateToken();
+
+# -------------------------------------------------------------------
+# | 29 | Authorization (Авторизация)
+# Laravel предоставляет два основных способа авторизации действий: гейты и политики
+# Думайте о шлюзах и политиках как о маршрутах и ​​контроллерах. Шлюзы обеспечивают простой подход к авторизации на основе замыкания, в то время как политики, такие как контроллеры, группируют логику вокруг конкретной модели или ресурса.
+# Шлюзы — это просто замыкания, которые определяют, авторизован ли пользователь для выполнения данного действия.
+# -------------------------------------------------------------------
+
+use App\Policies\PostPolicy;
+use Illuminate\Support\Facades\Gate;
+
+/**
+ * Register any authentication / authorization services.
+ *
+ * @return void
+ */
+public function boot()
+{
+    $this->registerPolicies();
+
+    Gate::define('update-post', function (User $user, Post $post) { return $user->id === $post->user_id; });
+    Gate::define('update-post', [PostPolicy::class, 'update']);
+}
+
+<?php
+namespace App\Http\Controllers;
+class PostController extends Controller
+{
+    public function update(Request $request, Post $post)
+    {
+        if (Gate::forUser($user)->allows('update-post', $post)) {
+        if (Gate::forUser($user)->denies('update-post', $post)) {
+        if (Gate::any(['update-post', 'delete-post'], $post)) {
+        if (! Gate::allows('update-post', $post)) {
+            abort(403);
+        }
+
+        // Update the post...
     }
 }
 
@@ -2361,3 +2468,4 @@ All CORS settings may be configured in your application's config/cors.php
 // https://laravel.com/docs/9.x/notifications
 // https://laravel.com/docs/9.x/rate-limiting (не изучил)
 // https://laravel.com/docs/9.x/queues
+// https://laravel.com/docs/9.x/authorization

@@ -1,0 +1,5 @@
+Runners > Shared runners > Снять галочку
+$ gitlab-runner register
+$ gitlab-runner verify
+$ gitlab-runner restart
+$ gitlab-runner install --user root
