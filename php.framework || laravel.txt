@@ -2309,7 +2309,11 @@ class PostController extends Controller
 }
 
 # -------------------------------------------------------------------
-# | 5 | Модели
+# | 31 | Database: Getting Started
+# | 32 | Database: Query Builder
+# $ php artisan db mysql
+# $ php artisan db:show
+# $ php artisan db:table users // Обзор таблицы
 # -------------------------------------------------------------------
 
 // Если вы хотите, чтобы привязка модели всегда использовала столбец базы данных,
@@ -2322,6 +2326,125 @@ public function resolveRouteBinding($value, $field = null) { return $this->where
 
 // Если маршрут использует неявную область привязки , resolveChildRouteBindingметод будет использоваться для разрешения дочерней привязки родительской модели:
 public function resolveChildRouteBinding($childType, $value, $field) { return parent::resolveChildRouteBinding($childType, $value, $field); }
+
+use Illuminate\Support\Facades\DB;
+$users = DB::select('select * from users where active = ?', [1]);
+$results = DB::select('select * from users where id = :id', ['id' => 1]);
+$burgers = DB::scalar("select count(case when food = 'burger' then 1 end) as burgers from menu");
+
+DB::insert('insert into users (id, name) values (?, ?)', [1, 'Marc']);
+$affected = DB::update('update users set votes = 100 where name = ?', ['Anita']);
+$deleted = DB::delete('delete from users');
+DB::statement('drop table users');
+
+
+DB::transaction(function () {
+    DB::update('update users set votes = 1');
+    DB::delete('delete from posts');
+});
+
+DB::transaction(function () {
+    DB::update('update users set votes = 1');
+
+    DB::delete('delete from posts');
+}, 5); // сколько раз транзакция должна быть повторена при возникновении взаимоблокировки
+
+// Ручное использование транзакций
+DB::beginTransaction();
+DB::rollBack();
+DB::commit();
+
+$users = DB::table('users')->get();
+$user = DB::table('users')->where('name', 'John')->first();
+$email = DB::table('users')->where('name', 'John')->value('email');
+$user = DB::table('users')->find(3);
+$titles = DB::table('users')->pluck('title', 'name'); // Получение списка значений столбца
+$users = DB::table('users')->count();
+$price = DB::table('orders')->max('price');
+$price = DB::table('orders')->where('finalized', 1)->avg('price');
+if (DB::table('orders')->where('finalized', 1)->exists()) { }
+if (DB::table('orders')->where('finalized', 1)->doesntExist()) { }
+$users = DB::table('users')->select('name', 'email as user_email')->get();
+$users = DB::table('users')->distinct()->get();
+$query = DB::table('users')->select('name');
+$users = $query->addSelect('age')->get();
+$users = DB::table('users')
+            ->select('user_id', DB::raw('MAX(created_at) as last_post_created_at'))
+             ->select(DB::raw('count(*) as user_count, status'))
+             ->selectRaw('price * ? as price_with_tax', [1.0825])
+             ->whereRaw('price > IF(state = "TX", ?, 100)', [200])
+             ->where('status', '<>', 1)
+             ->join('contacts', 'users.id', '=', 'contacts.user_id')
+             ->join('orders', 'users.id', '=', 'orders.user_id')
+             ->leftJoin('posts', 'users.id', '=', 'posts.user_id')
+             ->rightJoin('posts', 'users.id', '=', 'posts.user_id')
+            ->join('contacts', function ($join) {
+                $join->on('users.id', '=', 'contacts.user_id')->orOn(/* ... */);
+            })
+        ->join('contacts', function ($join) {
+            $join->on('users.id', '=', 'contacts.user_id')
+                 ->where('contacts.user_id', '>', 5);
+        })
+                             ->joinSub($latestPosts, 'latest_posts', function ($join) {
+                                 $join->on('users.id', '=', 'latest_posts.user_id');
+                             })->get();
+             ->havingRaw('SUM(price) > ?', [2500])
+             ->orderByRaw('updated_at - created_at DESC')
+             ->groupByRaw('city, state')
+             ->groupBy('status')
+
+             ->where('votes', 100)
+             ->where('votes', '=', 100)
+             ->where('age', '>', 35)
+             ->orWhere('name', 'John')
+             ->where([
+                 ['status', '=', '1'],
+                 ['subscribed', '<>', '1'],
+             ])
+                         ->orWhere(function($query) {
+                             $query->where('name', 'Abigail')
+                                   ->where('votes', '>', 50);
+                         })
+                                         ->whereNot(function ($query) {
+                                             $query->where('clearance', true)
+                                                   ->orWhere('price', '<', 10);
+                                         })
+             ->where('name', 'like', 'T%')
+             ->whereNull('last_name')
+             ->whereNull('updated_at')
+             ->whereNotNull('updated_at')
+             ->whereBetween('votes', [1, 100])
+             ->whereNotBetween('votes', [1, 100])
+             ->whereIn('id', [1, 2, 3])
+             ->whereNotIn('id', [1, 2, 3])
+
+             ->whereDate('created_at', '2016-12-31')
+             ->whereMonth('created_at', '12')
+             ->whereDay('created_at', '31')
+             ->whereYear('created_at', '2016')
+             ->whereTime('created_at', '=', '11:20:45')
+
+             ->whereColumn('first_name', 'last_name')
+             ->whereColumn('updated_at', '>', 'created_at')
+                             ->whereColumn([
+                                 ['first_name', '=', 'last_name'],
+                                 ['updated_at', '>', 'created_at'],
+                             ])
+
+                        ->whereExists(function ($query) {
+                            $query->select(DB::raw(1))
+                                  ->from('orders')
+                                  ->whereColumn('orders.user_id', 'users.id');
+                        })
+
+             ->where('preferences->dining->meal', 'salad') // JSON
+             ->whereJsonContains('options->languages', 'en') // JSON
+             ->whereJsonContains('options->languages', ['en', 'de'])
+             ->whereJsonLength('options->languages', 0)
+             ->whereJsonLength('options->languages', '>', 1)
+             ->union($first)
+             ->get();
+
 
 # -------------------------------------------------------------------
 # Команды
