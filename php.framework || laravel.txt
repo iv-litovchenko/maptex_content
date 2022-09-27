@@ -2369,6 +2369,11 @@ $users = DB::table('users')->distinct()->get();
 $query = DB::table('users')->select('name');
 $users = $query->addSelect('age')->get();
 $users = DB::table('users')
+                ->when($sortByVotes, function ($query, $sortByVotes) {
+                    $query->orderBy('votes');
+                }, function ($query) {
+                    $query->orderBy('name');
+                })
             ->select('user_id', DB::raw('MAX(created_at) as last_post_created_at'))
              ->select(DB::raw('count(*) as user_count, status'))
              ->selectRaw('price * ? as price_with_tax', [1.0825])
@@ -2442,9 +2447,70 @@ $users = DB::table('users')
              ->whereJsonContains('options->languages', ['en', 'de'])
              ->whereJsonLength('options->languages', 0)
              ->whereJsonLength('options->languages', '>', 1)
+
+             ->whereFullText('bio', 'web developer')
+             ->inRandomOrder()
+             ->orderBy('name', 'desc')
+             ->orderBy('email', 'asc')
+             ->groupBy('first_name', 'status')
+             ->having('account_id', '>', 100)
+             ->havingBetween('number_of_orders', [5, 15])
              ->union($first)
+
+             ->skip(10)->take(5)
+             ->offset(10)->limit(5) // тоже самое
+
+                ->when($sortByVotes, function ($query, $sortByVotes) {
+                    $query->orderBy('votes');
+                }, function ($query) {
+                    $query->orderBy('name');
+                })
              ->get();
 
+
+DB::table('users')->insert([
+    ['email' => 'picard@example.com', 'votes' => 0],
+    ['email' => 'janeway@example.com', 'votes' => 0],
+]);
+
+$id = DB::table('users')->insertGetId(
+    ['email' => 'john@example.com', 'votes' => 0]
+);
+
+
+$incomes = Income::where('amount', '<', function ($query) {
+    $query->selectRaw('avg(i.amount)')->from('incomes as i');
+})->get();
+
+$affected = DB::table('users')
+              ->where('id', 1)
+              ->update(['options->enabled' => true])
+              ->update(['votes' => 1])
+              ->updateOrInsert(
+                ['email' => 'john@example.com', 'name' => 'John'],
+                ['votes' => '2']
+              );
+
+DB::table('users')->increment('votes', 1, ['name' => 'John']);
+DB::table('users')->increment('votes');
+DB::table('users')->increment('votes', 5);
+DB::table('users')->decrement('votes');
+DB::table('users')->decrement('votes', 5);
+
+$deleted = DB::table('users')->delete();
+$deleted = DB::table('users')->where('votes', '>', 100)->delete();
+DB::table('users')->truncate();
+
+Пессимистическая блокировка
+DB::table('users')
+        ->where('votes', '>', 100)
+        ->sharedLock() // Общая блокировка предотвращает изменение выбранных строк до тех пор, пока ваша транзакция не будет зафиксирована:
+        ->lockForUpdate() // предотвращает изменение выбранных записей или их выбор с помощью другой общей блокировки
+        ->get();
+
+Отладка
+DB::table('users')->where('votes', '>', 100)->dd();
+DB::table('users')->where('votes', '>', 100)->dump();
 
 # -------------------------------------------------------------------
 # Команды
