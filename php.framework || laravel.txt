@@ -2311,6 +2311,7 @@ class PostController extends Controller
 # -------------------------------------------------------------------
 # | 31 | Database: Getting Started
 # | 32 | Database: Query Builder
+# | 33 | Database: Migrations
 # $ php artisan db mysql
 # $ php artisan db:show
 # $ php artisan db:table users // Обзор таблицы
@@ -2501,16 +2502,201 @@ $deleted = DB::table('users')->delete();
 $deleted = DB::table('users')->where('votes', '>', 100)->delete();
 DB::table('users')->truncate();
 
-Пессимистическая блокировка
+// Пессимистическая блокировка
 DB::table('users')
         ->where('votes', '>', 100)
         ->sharedLock() // Общая блокировка предотвращает изменение выбранных строк до тех пор, пока ваша транзакция не будет зафиксирована:
         ->lockForUpdate() // предотвращает изменение выбранных записей или их выбор с помощью другой общей блокировки
         ->get();
 
-Отладка
+// Отладка
 DB::table('users')->where('votes', '>', 100)->dd();
 DB::table('users')->where('votes', '>', 100)->dump();
+
+// Простая нумерация страниц
+$users = DB::table('users')->paginate(15)
+$users = DB::table('users')->simplePaginate(15);
+$users = User::paginate(15);
+$users->withPath('/admin/users');
+$users->appends(['sort' => 'votes']);
+
+<div class="container">
+    @foreach ($users as $user)
+        {{ $user->name }}
+    @endforeach
+</div>
+
+{{ $users->links() }}
+{{ $users->onEachSide(5)->links() }}
+
+// Миграции подобны контролю версий для вашей базы данных, позволяя вашей команде определять и совместно использовать определение схемы базы данных приложения
+// $php artisan migrate
+// $php artisan migrate:status
+// $php artisan migrate --pretend // увидеть операторы SQL, которые будут выполняться миграциями без их фактического запуска
+// $php artisan migrate:rollback
+
+<?php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+return new class extends Migration
+{
+    protected $connection = 'pgsql';
+
+    public function up()
+    {
+        Schema::create('flights', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('airline');
+            $table->timestamps();
+        });
+    }
+
+    public function down()
+    {
+        Schema::drop('flights');
+    }
+};
+
+# -------------------------------------------------------------------
+# | 34 | Eloquent: Getting Started
+# $ php artisan model:show Flight
+# -------------------------------------------------------------------
+
+// По соглашению, имя класса во множественном числе будет использоваться в качестве имени таблицы
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Flight extends Model
+{
+    use SoftDeletes; // deleted_at // Мягкое удаление
+    protected $fillable = ['name']; // какие атрибуты могут быть массово назначены
+    protected $fillable = [
+        'options->enabled', // JSON
+    ];
+
+    // Разрешение массового назначения
+    protected $guarded = [];
+
+    protected $table = 'my_flights';
+    protected $primaryKey = 'flight_id';
+    public $incrementing = false;
+    protected $keyType = 'string'; // Если первичный ключ вашей модели не является целым числом
+    public $timestamps = false; // created_atа также updated_at столбцы
+    protected $dateFormat = 'U';
+    const CREATED_AT = 'creation_date';
+    const UPDATED_AT = 'updated_date'; // Model::withoutTimestamps(fn () => $post->incrememt(['reads']));
+    protected $connection = 'sqlite';
+
+        // Значения атрибутов по умолчанию
+        protected $attributes = [
+            'delayed' => false,
+        ];
+
+    // Вместо использования автоматически увеличивающихся целых чисел в качестве первичных ключей вашей модели Eloquent вы можете вместо этого использовать UUID.
+    // UUID — это универсальные уникальные буквенно-цифровые идентификаторы длиной 36 символов.
+    // ULID аналогичны UUID; однако их длина составляет всего 26 символов.
+    use \Illuminate\Database\Eloquent\Concerns\HasUuids;
+    $article = Article::create(['title' => 'Traveling to Europe']);
+    $article->id; // "8f8e8478-9035-4d23-b9a7-62f4d2612ce5"
+    $article->id; // "01gd4d3tgrrfqeda94gdbtdk5c"
+
+    // Анонимные глобальные ограничения
+    User::withoutGlobalScope(AncientScope::class)->get();
+    User::withoutGlobalScope('ancient')->get();
+    User::withoutGlobalScopes()->get();
+    protected static function booted()
+    {
+        static::addGlobalScope('ancient', function (Builder $builder) {
+            $builder->where('created_at', '<', now()->subYears(2000));
+        });
+    }
+
+    // Локальные ограничения
+    $users = User::ofType('admin')->get();
+    public function scopeOfType($query, $type)
+    {
+        return $query->where('type', $type);
+    }
+}
+
+foreach (Flight::all() as $flight) {
+    echo $flight->name;
+}
+
+$flight = Flight::where('number', 'FR 900')->first();
+$flight->number = 'FR 456';
+$flight->refresh();
+$flight->number; // "FR 900"
+
+$flights = Flight::where('destination', 'Paris')->get();
+$flights = $flights->reject(function ($flight) {
+    return $flight->cancelled;
+});
+
+// Разделение результатов
+Flight::chunk(200, function ($flights) {
+    foreach ($flights as $flight) {
+        //
+    }
+});
+
+$flight = Flight::find(1);
+$flight = Flight::where('active', 1)->first();
+$flight = Flight::firstWhere('active', 1);
+$flight = Flight::findOr(1, function () {});
+$flight = Flight::where('legs', '>', 3)->firstOr(function () {});
+$flight = Flight::findOrFail(1); // ModelNotFoundException
+$flight = Flight::where('legs', '>', 3)->firstOrFail();
+
+// все модели Eloquent по умолчанию защищены от уязвимостей массового назначения.
+// нужно будет указать либо fillableили же guardedсвойство в вашем классе модели
+$flight = Flight::create([
+    'name' => 'London to Paris',
+]);
+
+$flight = Flight::firstOrCreate(
+    ['name' => 'London to Paris'],
+    ['delayed' => 1, 'arrival_time' => '11:30']
+);
+
+$flight = Flight::firstOrNew(
+    ['name' => 'Tokyo to Sydney'],
+    ['delayed' => 1, 'arrival_time' => '11:30']
+);
+
+$flight = new Flight;
+$flight->name = $request->name;
+$flight->save();
+
+$count = Flight::where('active', 1)->count();
+$max = Flight::where('active', 1)->max('price');
+
+$flight = Flight::find(1);
+$flight->name = 'Paris to London';
+$flight->save();
+
+// При выпуске массового обновления через Eloquent saving, saved, updating, а также updatedсобытия модели не будут запускаться для обновленных моделей.
+Flight::where('active', 1)
+      ->where('destination', 'San Diego')
+      ->update(['delayed' => 1]);
+
+$flight = Flight::find(1);
+$flight->delete();
+Flight::truncate();
+Flight::destroy(1);
+Flight::destroy(1, 2, 3);
+Flight::destroy([1, 2, 3]);
+Flight::destroy(collect([1, 2, 3]));
+$deleted = Flight::where('active', 0)->delete();
+
+if ($post->is($anotherPost)) { }
+if ($post->isNot($anotherPost)) { }
+if ($post->author()->is($user)) { }
 
 # -------------------------------------------------------------------
 # Команды
