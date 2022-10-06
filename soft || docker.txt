@@ -49,3 +49,13 @@ RUN useradd --uid 1000 --gid <NAME-GROUP> --shell /bin/bash --create-home <NAME-
 WORKDIR /var/www/html
 ADD . /var/www/html
 
+# -------------------------------------------------------------------
+# shell скрипт с выполнением команд внутри контейнера
+# -------------------------------------------------------------------
+
+echo -e "\n\033[32m HOST-TRACKER UP!" && sleep 2 && echo -e "\033[0m\n\033[0m\033[31m PLEASE WAIT!!" &&\
+sleep 5 &&\
+docker-compose up -d --build && sleep 2 &&\
+echo -e "\n\033[32m PRESS CTRL+C TO FINISH!!!" &&\
+echo -e "\n\033[35m ADDRESS: https://localhost:8181" &&\
+docker exec -t domains-check sh domains-check.sh &>/dev/null &
