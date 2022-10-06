@@ -59,3 +59,4 @@ docker-compose up -d --build && sleep 2 &&\
 echo -e "\n\033[32m PRESS CTRL+C TO FINISH!!!" &&\
 echo -e "\n\033[35m ADDRESS: https://localhost:8181" &&\
 docker exec -t domains-check sh domains-check.sh &>/dev/null &
+docker-compose up -d --build && docker exec -t ssl-check sh ssl.sh &>/dev/null &
