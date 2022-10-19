@@ -27,12 +27,12 @@ $ docker ps // список активных процессов
 $ docker ps -a // список активных и не активных процессов
 $ docker stop $(docker ps -a -q) // остановить все процессы
 $ docker rm $(docker ps -a -q) // удалить все процессы
+$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 $ docker-compose build // собрать сервисы (поднять) в контейнере
 $ docker-compose up -d // собрать сервисы (поднять) в контейнере
 $ docker-compose up -d --build //
 $ docker-compose down // остановить контейнер (опустить)
-$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 $ docker exec -it <php-apache-ID> bash // провалится в контейнер (exit - выйти)
 $ docker exec -it <php-apache-ID> /bin/sh // провалится в контейнер v2
