@@ -32,6 +32,7 @@ $ docker-compose build // собрать сервисы (поднять) в ко
 $ docker-compose up -d // собрать сервисы (поднять) в контейнере
 $ docker-compose up -d --build //
 $ docker-compose down // остановить контейнер (опустить)
+$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 $ docker exec -it <php-apache-ID> bash // провалится в контейнер (exit - выйти)
 $ docker exec -it <php-apache-ID> /bin/sh // провалится в контейнер v2
