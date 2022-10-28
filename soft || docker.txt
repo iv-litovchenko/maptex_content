@@ -44,7 +44,8 @@ $ docker-compose exec -T <php-apache-ID> php artisan ...
 # -------------------------------------------------------------------
 
 $ docker network ls
-$ docker network inspect 
+$ docker network inspect
+$ docker-compose up --force-recreate
 
 # -------------------------------------------------------------------
 # ??? Права
