@@ -22,14 +22,13 @@ $ sudo chmod 750 /usr/bin/docker-compose // to allow docker group users to execu
 # -------------------------------------------------------------------
 
 $ docker logs localhost
-$ docker network ls
 $ docker ps // список активных процессов
 $ docker ps -a // список активных и не активных процессов
 $ docker stop $(docker ps -a -q) // остановить все процессы
 $ docker rm $(docker ps -a -q) // удалить все процессы
-$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 $ docker-compose build // собрать сервисы (поднять) в контейнере
+$ docker-compose up --force-recreate
 $ docker-compose up -d // собрать сервисы (поднять) в контейнере
 $ docker-compose up -d --build //
 $ docker-compose down // остановить контейнер (опустить)
@@ -45,7 +44,13 @@ $ docker-compose exec -T <php-apache-ID> php artisan ...
 
 $ docker network ls
 $ docker network inspect
-$ docker-compose up --force-recreate
+
+# -------------------------------------------------------------------
+# Вольюмы (данные)
+# -------------------------------------------------------------------
+
+$ docker volume ls
+$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 # -------------------------------------------------------------------
 # ??? Права
