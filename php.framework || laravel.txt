@@ -2561,6 +2561,7 @@ return new class extends Migration
 
 # -------------------------------------------------------------------
 # | 34 | Eloquent: Getting Started
+# | 35 | Eloquent: Relationships
 # $ php artisan model:show Flight
 # -------------------------------------------------------------------
 
@@ -2697,6 +2698,22 @@ $deleted = Flight::where('active', 0)->delete();
 if ($post->is($anotherPost)) { }
 if ($post->isNot($anotherPost)) { }
 if ($post->author()->is($user)) { }
+
+$comments = Post::find(1)->comments;
+foreach ($comments as $comment) { }
+$comment = Post::find(1)->comments()->where('title', 'foo')->first();
+$comment = Comment::find(1);
+return $comment->post->title;
+
+// Один к одному
+return $this->hasOne(Phone::class);
+return $this->belongsTo(User::class);
+
+// Один ко многим
+return $this->hasMany(Comment::class);
+return $this->belongsTo(Post::class);
+
+// один из многих
 
 # -------------------------------------------------------------------
 # Команды
