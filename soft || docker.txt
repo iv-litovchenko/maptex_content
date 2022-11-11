@@ -21,13 +21,14 @@ $ sudo chmod 750 /usr/bin/docker-compose // to allow docker group users to execu
 # Команды
 # -------------------------------------------------------------------
 
-$ docker network ls
+$ docker logs localhost
 $ docker ps // список активных процессов
 $ docker ps -a // список активных и не активных процессов
 $ docker stop $(docker ps -a -q) // остановить все процессы
 $ docker rm $(docker ps -a -q) // удалить все процессы
 
 $ docker-compose build // собрать сервисы (поднять) в контейнере
+$ docker-compose up --force-recreate
 $ docker-compose up -d // собрать сервисы (поднять) в контейнере
 $ docker-compose up -d --build //
 $ docker-compose down // остановить контейнер (опустить)
@@ -36,6 +37,20 @@ $ docker exec -it <php-apache-ID> bash // провалится в контейн
 $ docker exec -it <php-apache-ID> /bin/sh // провалится в контейнер v2
 $ docker-compose exec -T <php-apache-ID> composer run-script build:app  --- пересобрать проект на докере
 $ docker-compose exec -T <php-apache-ID> php artisan ...
+
+# -------------------------------------------------------------------
+# Сети
+# -------------------------------------------------------------------
+
+$ docker network ls
+$ docker network inspect
+
+# -------------------------------------------------------------------
+# Вольюмы (данные)
+# -------------------------------------------------------------------
+
+$ docker volume ls
+$ docker volume rm $(docker volume ls -q) // удалить все вольюмы
 
 # -------------------------------------------------------------------
 # ??? Права
@@ -49,3 +64,14 @@ RUN useradd --uid 1000 --gid <NAME-GROUP> --shell /bin/bash --create-home <NAME-
 WORKDIR /var/www/html
 ADD . /var/www/html
 
+# -------------------------------------------------------------------
+# shell скрипт с выполнением команд внутри контейнера
+# -------------------------------------------------------------------
+
+echo -e "\n\033[32m HOST-TRACKER UP!" && sleep 2 && echo -e "\033[0m\n\033[0m\033[31m PLEASE WAIT!!" &&\
+sleep 5 &&\
+docker-compose up -d --build && sleep 2 &&\
+echo -e "\n\033[32m PRESS CTRL+C TO FINISH!!!" &&\
+echo -e "\n\033[35m ADDRESS: https://localhost:8181" &&\
+docker exec -t domains-check sh domains-check.sh &>/dev/null &
+docker-compose up -d --build && docker exec -t ssl-check sh ssl.sh &>/dev/null &

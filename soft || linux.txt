@@ -201,3 +201,4 @@ https://www.hostinger.com/tutorials/linux-commands
 # -------------------------------------------------------------------
 
 -- Эмуляция браузера через Telnet
+-- zip -r project.19.10.2022.zip project
